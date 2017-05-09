@@ -19,7 +19,6 @@ package com.android.phone;
 import static com.android.internal.telephony.PhoneConstants.SUBSCRIPTION_KEY;
 
 import android.Manifest.permission;
-import android.annotation.Nullable;
 import android.app.ActivityManager;
 import android.app.AppOpsManager;
 import android.app.PendingIntent;
@@ -94,9 +93,12 @@ import com.android.internal.telephony.uicc.UiccCard;
 import com.android.internal.telephony.uicc.UiccCardApplication;
 import com.android.internal.telephony.uicc.UiccController;
 import com.android.internal.util.HexDump;
-import com.android.phone.settings.VisualVoicemailSettingsUtil;
 import com.android.phone.settings.VoicemailNotificationSettingsUtil;
+import com.android.phone.vvm.PhoneAccountHandleConverter;
 import com.android.phone.vvm.RemoteVvmTaskManager;
+import com.android.phone.vvm.VisualVoicemailPreferences;
+import com.android.phone.vvm.VisualVoicemailSettingsUtil;
+import com.android.phone.vvm.VisualVoicemailSmsFilterConfig;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
@@ -511,6 +513,7 @@ public class PhoneInterfaceManager extends ITelephony.Stub {
                 case CMD_OPEN_CHANNEL:
                     request = (MainThreadRequest) msg.obj;
                     uiccCard = getUiccCardFromRequest(request);
+                    Pair<String, Integer> openChannelArgs = (Pair<String, Integer>) request.argument;
                     if (uiccCard == null) {
                         loge("iccOpenLogicalChannel: No UICC");
                         request.result = new IccOpenLogicalChannelResponse(-1,
@@ -520,7 +523,8 @@ public class PhoneInterfaceManager extends ITelephony.Stub {
                         }
                     } else {
                         onCompleted = obtainMessage(EVENT_OPEN_CHANNEL_DONE, request);
-                        uiccCard.iccOpenLogicalChannel((String)request.argument, onCompleted);
+                        uiccCard.iccOpenLogicalChannel(openChannelArgs.first,
+                                openChannelArgs.second, onCompleted);
                     }
                     break;
 
@@ -2015,24 +2019,17 @@ public class PhoneInterfaceManager extends ITelephony.Stub {
     }
 
     @Override
-    public void setVisualVoicemailEnabled(String callingPackage,
-            PhoneAccountHandle phoneAccountHandle, boolean enabled) {
+    public Bundle getVisualVoicemailSettings(String callingPackage, int subId) {
         mAppOps.checkPackage(Binder.getCallingUid(), callingPackage);
-        if (!TextUtils.equals(callingPackage,
-                TelecomManager.from(mPhone.getContext()).getDefaultDialerPackage())) {
-            enforceModifyPermissionOrCarrierPrivilege(
-                    PhoneUtils.getSubIdForPhoneAccountHandle(phoneAccountHandle));
+        String systemDialer = TelecomManager.from(mPhone.getContext()).getSystemDialerPackage();
+        if (!TextUtils.equals(callingPackage, systemDialer)) {
+            throw new SecurityException("caller must be system dialer");
         }
-        VisualVoicemailSettingsUtil.setEnabled(mPhone.getContext(), phoneAccountHandle, enabled);
-    }
-
-    @Override
-    public boolean isVisualVoicemailEnabled(String callingPackage,
-            PhoneAccountHandle phoneAccountHandle) {
-        if (!canReadPhoneState(callingPackage, "isVisualVoicemailEnabled")) {
-            return false;
+        PhoneAccountHandle phoneAccountHandle = PhoneAccountHandleConverter.fromSubId(subId);
+        if (phoneAccountHandle == null){
+            return null;
         }
-        return VisualVoicemailSettingsUtil.isEnabled(mPhone.getContext(), phoneAccountHandle);
+        return VisualVoicemailSettingsUtil.dump(mPhone.getContext(), phoneAccountHandle);
     }
 
     @Override
@@ -2371,12 +2368,12 @@ public class PhoneInterfaceManager extends ITelephony.Stub {
     }
 
     @Override
-    public IccOpenLogicalChannelResponse iccOpenLogicalChannel(int subId, String AID) {
+    public IccOpenLogicalChannelResponse iccOpenLogicalChannel(int subId, String AID, int p2) {
         enforceModifyPermissionOrCarrierPrivilege(subId);
 
-        if (DBG) log("iccOpenLogicalChannel: subId=" + subId + " aid=" + AID);
+        if (DBG) log("iccOpenLogicalChannel: subId=" + subId + " aid=" + AID + " p2=" + p2);
         IccOpenLogicalChannelResponse response = (IccOpenLogicalChannelResponse)sendRequest(
-            CMD_OPEN_CHANNEL, AID, subId);
+            CMD_OPEN_CHANNEL, new Pair<String, Integer>(AID, p2), subId);
         if (DBG) log("iccOpenLogicalChannel: " + response);
         return response;
     }
@@ -2484,8 +2481,8 @@ public class PhoneInterfaceManager extends ITelephony.Stub {
      * on a particular subscription
      */
     public String[] getForbiddenPlmns(int subId, int appType) {
-        mApp.enforceCallingOrSelfPermission(android.Manifest.permission.READ_PRIVILEGED_PHONE_STATE,
-                "Requires READ_PRIVILEGED_PHONE_STATE");
+        mApp.enforceCallingOrSelfPermission(android.Manifest.permission.READ_PHONE_STATE,
+                "Requires READ_PHONE_STATE");
         if (appType != TelephonyManager.APPTYPE_USIM && appType != TelephonyManager.APPTYPE_SIM) {
             loge("getForbiddenPlmnList(): App Type must be USIM or SIM");
             return null;
@@ -3804,6 +3801,20 @@ public class PhoneInterfaceManager extends ITelephony.Stub {
 
         if (phone != null) {
             phone.setSimPowerState(powerUp);
+        }
+    }
+
+    /**
+     * Check if phone is in emergency callback mode
+     * @return true if phone is in emergency callback mode
+     * @param subId sub id
+     */
+    public boolean getEmergencyCallbackMode(int subId) {
+        final Phone phone = getPhone(subId);
+        if (phone != null) {
+            return phone.isInEcm();
+        } else {
+            return false;
         }
     }
 }

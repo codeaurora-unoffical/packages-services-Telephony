@@ -102,17 +102,17 @@
     <string name="puk_unlocked">Your SIM card has been unblocked. Your phone is unlocking\u2026</string>
     <!-- network depersonalization -->
     <!-- Label text for PIN entry widget on SIM Network Depersonalization panel -->
-    <string name="label_ndp">SIM network unlock PIN</string>
+    <string name="PERSOSUBSTATE_SIM_NETWORK_ENTRY">SIM network unlock PIN</string>
     <!-- Button label on SIM Network Depersonalization panel -->
     <string name="sim_ndp_unlock_text">Unlock</string>
     <!-- Button label on SIM Network Depersonalization panel -->
     <string name="sim_ndp_dismiss_text">Dismiss</string>
     <!-- Status message displayed on SIM Network Depersonalization panel -->
-    <string name="requesting_unlock">Requesting network unlock\u2026</string>
+    <string name="PERSOSUBSTATE_SIM_NETWORK_IN_PROGRESS">Requesting SIM network unlock\u2026</string>
     <!-- Error message displayed on SIM Network Depersonalization panel -->
-    <string name="unlock_failed">Network unlock request unsuccessful.</string>
+    <string name="PERSOSUBSTATE_SIM_NETWORK_ERROR">SIM Network unlock request unsuccessful.</string>
     <!-- Success message displayed on SIM Network Depersonalization panel -->
-    <string name="unlock_success">Network unlock successful.</string>
+    <string name="PERSOSUBSTATE_SIM_NETWORK_SUCCESS">SIM Network unlock successful.</string>
 
     <!-- settings strings -->
 
@@ -357,6 +357,8 @@
     <!-- networks setting strings --><skip/>
     <!-- Mobile network settings screen title -->
     <string name="mobile_networks">Mobile network settings</string>
+    <!-- Mobile network settings screen title/heading -->
+    <string name="network_settings_title">Mobile network</string>
     <!-- Available networks screen title/heading -->
     <string name="label_available">Available networks</string>
     <!-- Mobile network settings screen, toast when searching for available networks -->
@@ -1029,7 +1031,7 @@
     <string name="notification_network_selection_text">Selected network (<xliff:g id="operator_name">%s</xliff:g>) unavailable</string>
 
     <!-- In-call screen: call failure message displayed in an error dialog. [CHAR_LIMIT=NONE] -->
-    <string name="incall_error_power_off" product="watch">Turn off airplane mode or battery saver mode to make a call.</string>
+    <string name="incall_error_power_off" product="watch">Turn on mobile network, turn off airplane mode or turn off battery saver mode to make a call.</string>
     <!-- In-call screen: call failure message displayed in an error dialog. [CHAR_LIMIT=NONE] -->
     <string name="incall_error_power_off" product="default">Turn off airplane mode to make a call.</string>
     <!-- In-call screen: call failure message displayed in an error dialog when in airplane mode, WFC is enabled, not wifi-only, and not connected to wireless networks. [CHAR_LIMIT=NONE] -->
