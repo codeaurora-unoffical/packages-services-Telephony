@@ -25,6 +25,9 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.content.res.Configuration;
 import android.media.AudioManager;
 import android.net.Uri;
@@ -32,6 +35,7 @@ import android.os.Handler;
 import android.os.Message;
 import android.os.PersistableBundle;
 import android.os.RemoteException;
+import android.os.ServiceManager;
 import android.os.SystemProperties;
 import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
@@ -64,6 +68,7 @@ import com.android.internal.telephony.TelephonyCapabilities;
 import com.android.internal.telephony.TelephonyProperties;
 import com.android.internal.telephony.sip.SipPhone;
 import com.android.phone.CallGatewayManager.RawGatewayInfo;
+import org.codeaurora.internal.IExtTelephony;
 
 import java.util.Arrays;
 import java.util.List;
@@ -131,6 +136,8 @@ public class PhoneUtils {
      * the dialog theme correctly.
      */
     private static final int THEME = AlertDialog.THEME_DEVICE_DEFAULT_LIGHT;
+    /** Extra key to identify the service class voice or video */
+    public static final String SERVICE_CLASS = "service_class";
 
     private static class FgRingCalls {
         private Call fgCall;
@@ -787,7 +794,7 @@ public class PhoneUtils {
                                           MmiCode mmiCode,
                                           Message buttonCallbackMessage,
                                           Dialog previousAlert) {
-        if (DBG) log("displayMMIInitiate: " + mmiCode);
+        log("displayMMIInitiate: " + android.telecom.Log.pii(mmiCode.toString()));
         if (previousAlert != null) {
             previousAlert.dismiss();
         }
@@ -824,13 +831,13 @@ public class PhoneUtils {
         boolean isCancelable = (mmiCode != null) && mmiCode.isCancelable();
 
         if (!isCancelable) {
-            if (DBG) log("not a USSD code, displaying status toast.");
+            log("displayMMIInitiate: not a USSD code, displaying status toast.");
             CharSequence text = context.getText(R.string.mmiStarted);
             Toast.makeText(context, text, Toast.LENGTH_SHORT)
                 .show();
             return null;
         } else {
-            if (DBG) log("running USSD code, displaying indeterminate progress.");
+            log("displayMMIInitiate: running USSD code, displaying intermediate progress.");
 
             // create the indeterminate progress dialog and display it.
             ProgressDialog pd = new ProgressDialog(context, THEME);
@@ -862,13 +869,13 @@ public class PhoneUtils {
         int title = 0;  // title for the progress dialog, if needed.
         MmiCode.State state = mmiCode.getState();
 
-        if (DBG) log("displayMMIComplete: state=" + state);
+        log("displayMMIComplete: state=" + state);
 
         switch (state) {
             case PENDING:
                 // USSD code asking for feedback from user.
                 text = mmiCode.getMessage();
-                if (DBG) log("- using text from PENDING MMI message: '" + text + "'");
+                log("displayMMIComplete: using text from PENDING MMI message: '" + text + "'");
                 break;
             case CANCELLED:
                 text = null;
@@ -887,7 +894,7 @@ public class PhoneUtils {
 
             case FAILED:
                 text = mmiCode.getMessage();
-                if (DBG) log("- using text from MMI message: '" + text + "'");
+                log("displayMMIComplete (failed): using text from MMI message: '" + text + "'");
                 break;
             default:
                 throw new IllegalStateException("Unexpected MmiCode state: " + state);
@@ -929,9 +936,9 @@ public class PhoneUtils {
             // A USSD in a pending state means that it is still
             // interacting with the user.
             if (state != MmiCode.State.PENDING) {
-                if (DBG) log("MMI code has finished running.");
+                log("displayMMIComplete: MMI code has finished running.");
 
-                if (DBG) log("Extended NW displayMMIInitiate (" + text + ")");
+                log("displayMMIComplete: Extended NW displayMMIInitiate (" + text + ")");
                 if (text == null || text.length() == 0)
                     return;
 
@@ -966,7 +973,8 @@ public class PhoneUtils {
                 sUssdDialog.setMessage(sUssdMsg.toString());
                 sUssdDialog.show();
             } else {
-                if (DBG) log("USSD code has requested user input. Constructing input dialog.");
+                log("displayMMIComplete: USSD code has requested user input. Constructing input "
+                        + "dialog.");
 
                 // USSD MMI code that is interacting with the user.  The
                 // basic set of steps is this:
@@ -1856,8 +1864,7 @@ public class PhoneUtils {
         // isIdle includes checks for the DISCONNECTING/DISCONNECTED state.
         if(!fgCall.isIdle()) {
             for (Connection cn : fgCall.getConnections()) {
-                if (PhoneNumberUtils.isLocalEmergencyNumber(PhoneGlobals.getInstance(),
-                        cn.getAddress())) {
+                if (isLocalEmergencyNumber(cn.getAddress())) {
                     return true;
                 }
             }
@@ -2491,5 +2498,89 @@ public class PhoneUtils {
         for (Phone phone : PhoneFactory.getPhones()) {
             phone.setRadioPower(enabled);
         }
+    }
+
+    /**
+     * check whether NetworkSetting apk exist in system, if yes, return true, else
+     * return false.
+     */
+    public static boolean isNetworkSettingsApkAvailable(Context context) {
+        // check whether the target handler exist in system
+        Intent intent = new Intent("org.codeaurora.settings.NETWORK_OPERATOR_SETTINGS_ASYNC");
+        PackageManager pm = context.getPackageManager();
+        List<ResolveInfo> list = pm.queryIntentActivities(intent, 0);
+        for (ResolveInfo resolveInfo : list) {
+            // check is it installed in system.img, exclude the application
+            // installed by user
+            if ((resolveInfo.activityInfo.applicationInfo.flags &
+                    ApplicationInfo.FLAG_SYSTEM) != 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static IExtTelephony getIExtTelephony() {
+        return IExtTelephony.Stub.asInterface(ServiceManager.getService("extphone"));
+    }
+
+    public static boolean isLocalEmergencyNumber(String address) {
+        boolean result = false;
+        try {
+            result = getIExtTelephony().isLocalEmergencyNumber(address);
+        }catch (RemoteException ex) {
+            Log.e("TelephonyConnectionService", "Exception: " + ex);
+        } catch (NullPointerException ex) {
+            Log.e("TelephonyConnectionService", "Exception: " + ex);
+        }
+        return result;
+    }
+
+    public static boolean isPotentialLocalEmergencyNumber(String address) {
+        boolean result = false;
+        try {
+            result = getIExtTelephony().isPotentialLocalEmergencyNumber(address);
+        }catch (RemoteException ex) {
+            Log.e("TelephonyConnectionService", "Exception: " + ex);
+        } catch (NullPointerException ex) {
+            Log.e("TelephonyConnectionService", "Exception: " + ex);
+        }
+        return result;
+    }
+
+    public static boolean isEmergencyNumber(String address) {
+        boolean result = false;
+        try {
+            result = getIExtTelephony().isEmergencyNumber(address);
+        }catch (RemoteException ex) {
+            Log.e("TelephonyConnectionService", "Exception: " + ex);
+        } catch (NullPointerException ex) {
+            Log.e("TelephonyConnectionService", "Exception: " + ex);
+        }
+        return result;
+    }
+
+    public static boolean isDeviceInSingleStandBy() {
+        boolean result = false;
+        try {
+            result = getIExtTelephony().isDeviceInSingleStandby();
+        } catch (RemoteException ex) {
+            Log.e("TelephonyConnectionService", "Exception : " + ex);
+        } catch (NullPointerException ex) {
+            Log.e("TelephonyConnectionService", "Exception : " + ex);
+        }
+        return result;
+    }
+
+    public static int getPhoneIdForECall() {
+        int phoneId = 0;
+        try {
+            phoneId = getIExtTelephony().getPhoneIdForECall();
+        } catch (RemoteException ex) {
+            Log.e("TelephonyConnectionService", "Exceptions : " + ex);
+        } catch (NullPointerException ex) {
+            Log.e("TelephonyConnectionService", "Exception : " + ex);
+        }
+        return phoneId;
     }
 }

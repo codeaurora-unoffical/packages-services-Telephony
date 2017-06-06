@@ -31,6 +31,8 @@
 
 <!-- The xml contains Qti specific resource strings neede for any value added features. -->
 <resources>
+    <string name="ims_settings">IMS Settings</string>
+
     <string name="call_barring">Call barring</string>
     <!-- Icc depersonalization related strings -->
     <!-- Label text for PIN entry widget on SIM Network Depersonalization panel -->
@@ -197,4 +199,6 @@ ul.</string>
     <string name="PERSOSUBSTATE_RUIM_CORPORATE_PUK_SUCCESS">PUK unlock successful.</string>
     <string name="PERSOSUBSTATE_RUIM_SERVICE_PROVIDER_PUK_SUCCESS">PUK unlock successful.</string>
     <string name="PERSOSUBSTATE_RUIM_RUIM_PUK_SUCCESS">PUK unlock successful.</string>
+    <string name="srvcc_video_message">"Video call is downgraded to 2G/3G voice call due to 4G network is not available."</string>
+    <string name="srvcc_message">"4G voice call is downgraded to 2G/3G voice call due to 4G network is not available."</string>
 </resources>

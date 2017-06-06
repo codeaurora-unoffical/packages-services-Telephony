@@ -19,7 +19,6 @@ package com.android.phone;
 import static com.android.internal.telephony.PhoneConstants.SUBSCRIPTION_KEY;
 
 import android.Manifest.permission;
-import android.annotation.Nullable;
 import android.app.ActivityManager;
 import android.app.AppOpsManager;
 import android.app.PendingIntent;
@@ -72,6 +71,7 @@ import com.android.ims.ImsManager;
 import com.android.ims.internal.IImsServiceController;
 import com.android.ims.internal.IImsServiceFeatureListener;
 import com.android.internal.telephony.CallManager;
+import com.android.internal.telephony.CallStateException;
 import com.android.internal.telephony.CellNetworkScanResult;
 import com.android.internal.telephony.CommandException;
 import com.android.internal.telephony.DefaultPhoneNotifier;
@@ -95,7 +95,10 @@ import com.android.internal.telephony.uicc.UiccCardApplication;
 import com.android.internal.telephony.uicc.UiccController;
 import com.android.internal.util.HexDump;
 import com.android.phone.settings.VoicemailNotificationSettingsUtil;
+import com.android.phone.vvm.PhoneAccountHandleConverter;
 import com.android.phone.vvm.RemoteVvmTaskManager;
+import com.android.phone.vvm.VisualVoicemailPreferences;
+import com.android.phone.vvm.VisualVoicemailSettingsUtil;
 import com.android.phone.vvm.VisualVoicemailSmsFilterConfig;
 
 import java.io.FileDescriptor;
@@ -165,6 +168,8 @@ public class PhoneInterfaceManager extends ITelephony.Stub {
     private static final int CMD_HANDLE_USSD_REQUEST = 47;
     private static final int CMD_GET_FORBIDDEN_PLMNS = 48;
     private static final int EVENT_GET_FORBIDDEN_PLMNS_DONE = 49;
+    private static final int CMD_SIM_GET_ATR = 50;
+    private static final int EVENT_SIM_GET_ATR_DONE = 51;
 
     /** The singleton instance. */
     private static PhoneInterfaceManager sInstance;
@@ -280,9 +285,13 @@ public class PhoneInterfaceManager extends ITelephony.Stub {
                      Pair<String, ResultReceiver> ussdObject = (Pair) request.argument;
                      String ussdRequest =  ussdObject.first;
                      ResultReceiver wrappedCallback = ussdObject.second;
-                     request.result = phone != null ?
-                             phone.handleUssdRequest(ussdRequest, wrappedCallback)
-                             :false;
+                     try {
+                         request.result = phone != null ?
+                                 phone.handleUssdRequest(ussdRequest, wrappedCallback)
+                                 : false;
+                     } catch (CallStateException cse) {
+                         request.result = false;
+                     }
                      // Wake up the requesting thread
                      synchronized (request) {
                          request.notifyAll();
@@ -917,6 +926,42 @@ public class PhoneInterfaceManager extends ITelephony.Stub {
                               onCompleted);
                     break;
 
+                case CMD_SIM_GET_ATR:
+                    request = (MainThreadRequest) msg.obj;
+                    uiccCard = getUiccCardFromRequest(request);
+                    if (uiccCard == null) {
+                        loge("getAtr: No UICC");
+                        request.result = "";
+                         synchronized (request) {
+                            request.notifyAll();
+                        }
+                    } else {
+                        onCompleted = obtainMessage(EVENT_SIM_GET_ATR_DONE, request);
+                        uiccCard.getAtr(onCompleted);
+                    }
+                    break;
+
+                case EVENT_SIM_GET_ATR_DONE:
+                    ar = (AsyncResult) msg.obj;
+                    request = (MainThreadRequest) ar.userObj;
+                    if (ar.exception == null) {
+                        request.result = ar.result;
+                    } else {
+                        request.result = "";
+                        if (ar.result == null) {
+                            loge("ccExchangeSimIO: Empty Response");
+                        } else if (ar.exception instanceof CommandException) {
+                            loge("iccTransmitApduBasicChannel: CommandException: " +
+                                    ar.exception);
+                        } else {
+                            loge("iccTransmitApduBasicChannel: Unknown exception");
+                        }
+                    }
+                    synchronized (request) {
+                        request.notifyAll();
+                    }
+                    break;
+
                 default:
                     Log.w(LOG_TAG, "MainThreadHandler: unexpected message code: " + msg.what);
                     break;
@@ -1276,7 +1321,9 @@ public class PhoneInterfaceManager extends ITelephony.Stub {
 
     public int[] supplyPinReportResultForSubscriber(int subId, String pin) {
         enforceModifyPermission();
-        final UnlockSim checkSimPin = new UnlockSim(getPhone(subId).getIccCard());
+        Phone phone = getPhone(subId);
+        if (phone == null) return returnErrorForPinPukOperation();
+        final UnlockSim checkSimPin = new UnlockSim(phone.getIccCard());
         checkSimPin.start();
         return checkSimPin.unlockSim(null, pin);
     }
@@ -1288,9 +1335,20 @@ public class PhoneInterfaceManager extends ITelephony.Stub {
 
     public int[] supplyPukReportResultForSubscriber(int subId, String puk, String pin) {
         enforceModifyPermission();
-        final UnlockSim checkSimPuk = new UnlockSim(getPhone(subId).getIccCard());
+        Phone phone = getPhone(subId);
+        if (phone == null) return returnErrorForPinPukOperation();
+        final UnlockSim checkSimPuk = new UnlockSim(phone.getIccCard());
         checkSimPuk.start();
         return checkSimPuk.unlockSim(puk, pin);
+    }
+
+    private int[] returnErrorForPinPukOperation() {
+        int[] resultArray = new int[2];
+        resultArray[0] = PhoneConstants.PIN_GENERAL_FAILURE;
+        //This field is for attempts remaining, anything < 0 is considered
+        //as invalid. This is returned in case of actual PIN FAILURE from UIM.
+        resultArray[1] = -1;
+        return resultArray;
     }
 
     /**
@@ -1488,6 +1546,7 @@ public class PhoneInterfaceManager extends ITelephony.Stub {
     }
 
     public boolean setRadioPower(boolean turnOn) {
+        enforceModifyPermission();
         final Phone defaultPhone = PhoneFactory.getDefaultPhone();
         if (defaultPhone != null) {
             defaultPhone.setRadioPower(turnOn);
@@ -2014,6 +2073,20 @@ public class PhoneInterfaceManager extends ITelephony.Stub {
         Boolean success = (Boolean) sendRequest(CMD_SET_VOICEMAIL_NUMBER,
                 new Pair<String, String>(alphaTag, number), new Integer(subId));
         return success;
+    }
+
+    @Override
+    public Bundle getVisualVoicemailSettings(String callingPackage, int subId) {
+        mAppOps.checkPackage(Binder.getCallingUid(), callingPackage);
+        String systemDialer = TelecomManager.from(mPhone.getContext()).getSystemDialerPackage();
+        if (!TextUtils.equals(callingPackage, systemDialer)) {
+            throw new SecurityException("caller must be system dialer");
+        }
+        PhoneAccountHandle phoneAccountHandle = PhoneAccountHandleConverter.fromSubId(subId);
+        if (phoneAccountHandle == null){
+            return null;
+        }
+        return VisualVoicemailSettingsUtil.dump(mPhone.getContext(), phoneAccountHandle);
     }
 
     @Override
@@ -3800,5 +3873,26 @@ public class PhoneInterfaceManager extends ITelephony.Stub {
         } else {
             return false;
         }
+    }
+
+    public byte[] getAtr() {
+        return getAtrUsingSubId(getDefaultSubscription());
+    }
+
+    @Override
+    public byte[] getAtrUsingSubId(int subId) {
+        if (Binder.getCallingUid() != Process.NFC_UID) {
+            throw new SecurityException("Only Smartcard API may access UICC");
+        }
+        Log.d(LOG_TAG, "SIM_GET_ATR ");
+        String response = (String)sendRequest(CMD_SIM_GET_ATR, null, subId);
+        if (response != null && response.length() != 0) {
+            try{
+                return IccUtils.hexStringToBytes(response);
+            } catch(RuntimeException re) {
+                Log.e(LOG_TAG, "Invalid format of the response string");
+            }
+        }
+        return null;
     }
 }
