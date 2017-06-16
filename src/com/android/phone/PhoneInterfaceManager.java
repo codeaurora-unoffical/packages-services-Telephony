@@ -93,11 +93,10 @@ import com.android.internal.telephony.uicc.SIMRecords;
 import com.android.internal.telephony.uicc.UiccCard;
 import com.android.internal.telephony.uicc.UiccCardApplication;
 import com.android.internal.telephony.uicc.UiccController;
+import com.android.internal.telephony.util.VoicemailNotificationSettingsUtil;
 import com.android.internal.util.HexDump;
-import com.android.phone.settings.VoicemailNotificationSettingsUtil;
 import com.android.phone.vvm.PhoneAccountHandleConverter;
 import com.android.phone.vvm.RemoteVvmTaskManager;
-import com.android.phone.vvm.VisualVoicemailPreferences;
 import com.android.phone.vvm.VisualVoicemailSettingsUtil;
 import com.android.phone.vvm.VisualVoicemailSmsFilterConfig;
 
@@ -168,6 +167,8 @@ public class PhoneInterfaceManager extends ITelephony.Stub {
     private static final int CMD_HANDLE_USSD_REQUEST = 47;
     private static final int CMD_GET_FORBIDDEN_PLMNS = 48;
     private static final int EVENT_GET_FORBIDDEN_PLMNS_DONE = 49;
+    private static final int CMD_SIM_GET_ATR = 50;
+    private static final int EVENT_SIM_GET_ATR_DONE = 51;
 
     /** The singleton instance. */
     private static PhoneInterfaceManager sInstance;
@@ -924,6 +925,42 @@ public class PhoneInterfaceManager extends ITelephony.Stub {
                               onCompleted);
                     break;
 
+                case CMD_SIM_GET_ATR:
+                    request = (MainThreadRequest) msg.obj;
+                    uiccCard = getUiccCardFromRequest(request);
+                    if (uiccCard == null) {
+                        loge("getAtr: No UICC");
+                        request.result = "";
+                         synchronized (request) {
+                            request.notifyAll();
+                        }
+                    } else {
+                        onCompleted = obtainMessage(EVENT_SIM_GET_ATR_DONE, request);
+                        uiccCard.getAtr(onCompleted);
+                    }
+                    break;
+
+                case EVENT_SIM_GET_ATR_DONE:
+                    ar = (AsyncResult) msg.obj;
+                    request = (MainThreadRequest) ar.userObj;
+                    if (ar.exception == null) {
+                        request.result = ar.result;
+                    } else {
+                        request.result = "";
+                        if (ar.result == null) {
+                            loge("ccExchangeSimIO: Empty Response");
+                        } else if (ar.exception instanceof CommandException) {
+                            loge("iccTransmitApduBasicChannel: CommandException: " +
+                                    ar.exception);
+                        } else {
+                            loge("iccTransmitApduBasicChannel: Unknown exception");
+                        }
+                    }
+                    synchronized (request) {
+                        request.notifyAll();
+                    }
+                    break;
+
                 default:
                     Log.w(LOG_TAG, "MainThreadHandler: unexpected message code: " + msg.what);
                     break;
@@ -1283,7 +1320,9 @@ public class PhoneInterfaceManager extends ITelephony.Stub {
 
     public int[] supplyPinReportResultForSubscriber(int subId, String pin) {
         enforceModifyPermission();
-        final UnlockSim checkSimPin = new UnlockSim(getPhone(subId).getIccCard());
+        Phone phone = getPhone(subId);
+        if (phone == null) return returnErrorForPinPukOperation();
+        final UnlockSim checkSimPin = new UnlockSim(phone.getIccCard());
         checkSimPin.start();
         return checkSimPin.unlockSim(null, pin);
     }
@@ -1295,9 +1334,20 @@ public class PhoneInterfaceManager extends ITelephony.Stub {
 
     public int[] supplyPukReportResultForSubscriber(int subId, String puk, String pin) {
         enforceModifyPermission();
-        final UnlockSim checkSimPuk = new UnlockSim(getPhone(subId).getIccCard());
+        Phone phone = getPhone(subId);
+        if (phone == null) return returnErrorForPinPukOperation();
+        final UnlockSim checkSimPuk = new UnlockSim(phone.getIccCard());
         checkSimPuk.start();
         return checkSimPuk.unlockSim(puk, pin);
+    }
+
+    private int[] returnErrorForPinPukOperation() {
+        int[] resultArray = new int[2];
+        resultArray[0] = PhoneConstants.PIN_GENERAL_FAILURE;
+        //This field is for attempts remaining, anything < 0 is considered
+        //as invalid. This is returned in case of actual PIN FAILURE from UIM.
+        resultArray[1] = -1;
+        return resultArray;
     }
 
     /**
@@ -3438,7 +3488,7 @@ public class PhoneInterfaceManager extends ITelephony.Stub {
             phone = mPhone;
         }
 
-        return VoicemailNotificationSettingsUtil.getRingtoneUri(phone);
+        return VoicemailNotificationSettingsUtil.getRingtoneUri(phone.getContext());
     }
 
     /**
@@ -3465,7 +3515,7 @@ public class PhoneInterfaceManager extends ITelephony.Stub {
         if (phone == null){
            phone = mPhone;
         }
-        VoicemailNotificationSettingsUtil.setRingtoneUri(phone, uri);
+        VoicemailNotificationSettingsUtil.setRingtoneUri(phone.getContext(), uri);
     }
 
     /**
@@ -3482,7 +3532,7 @@ public class PhoneInterfaceManager extends ITelephony.Stub {
             phone = mPhone;
         }
 
-        return VoicemailNotificationSettingsUtil.isVibrationEnabled(phone);
+        return VoicemailNotificationSettingsUtil.isVibrationEnabled(phone.getContext());
     }
 
     /**
@@ -3510,7 +3560,7 @@ public class PhoneInterfaceManager extends ITelephony.Stub {
         if (phone == null){
             phone = mPhone;
         }
-        VoicemailNotificationSettingsUtil.setVibrationEnabled(phone, enabled);
+        VoicemailNotificationSettingsUtil.setVibrationEnabled(phone.getContext(), enabled);
     }
 
     /**
@@ -3822,5 +3872,26 @@ public class PhoneInterfaceManager extends ITelephony.Stub {
         } else {
             return false;
         }
+    }
+
+    public byte[] getAtr() {
+        return getAtrUsingSubId(getDefaultSubscription());
+    }
+
+    @Override
+    public byte[] getAtrUsingSubId(int subId) {
+        if (Binder.getCallingUid() != Process.NFC_UID) {
+            throw new SecurityException("Only Smartcard API may access UICC");
+        }
+        Log.d(LOG_TAG, "SIM_GET_ATR ");
+        String response = (String)sendRequest(CMD_SIM_GET_ATR, null, subId);
+        if (response != null && response.length() != 0) {
+            try{
+                return IccUtils.hexStringToBytes(response);
+            } catch(RuntimeException re) {
+                Log.e(LOG_TAG, "Invalid format of the response string");
+            }
+        }
+        return null;
     }
 }

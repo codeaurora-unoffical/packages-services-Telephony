@@ -57,6 +57,9 @@ import com.android.phone.ImsUtil;
 import com.android.phone.PhoneGlobals;
 import com.android.phone.PhoneUtils;
 import com.android.phone.R;
+import org.codeaurora.ims.utils.QtiImsExtUtils;
+
+import org.codeaurora.ims.QtiCallConstants;
 
 import java.lang.Override;
 import java.util.Arrays;
@@ -72,7 +75,8 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Base class for CDMA and GSM connections.
  */
-abstract class TelephonyConnection extends Connection {
+abstract class TelephonyConnection extends Connection
+        implements TelephonyConnectionService.ConnectionRemovedListener {
     private static final int MSG_PRECISE_CALL_STATE_CHANGED = 1;
     private static final int MSG_RINGBACK_TONE = 2;
     private static final int MSG_HANDOVER_STATE_CHANGED = 3;
@@ -96,11 +100,13 @@ abstract class TelephonyConnection extends Connection {
     private static final int MSG_ON_HOLD_TONE = 14;
     private static final int MSG_CDMA_VOICE_PRIVACY_ON = 15;
     private static final int MSG_CDMA_VOICE_PRIVACY_OFF = 16;
+    private static final int MSG_CONNECTION_REMOVED = 17;
 
     private SuppServiceNotification mSsNotification = null;
     private String[] mSubName = {"SIM1", "SIM2", "SIM3"};
     private String mDisplayName;
     private static final Object mLock = new Object();
+    private boolean mIsEmergencyNumber = false;
 
     private final Handler mHandler = new Handler() {
         @Override
@@ -124,6 +130,16 @@ abstract class TelephonyConnection extends Connection {
                             Log.d(TelephonyConnection.this,
                                     "SettingOriginalConnection " + mOriginalConnection.toString()
                                             + " with " + connection.toString());
+                            boolean isShowToast = (getPhone() != null) ?
+                                    QtiImsExtUtils.isCarrierConfigEnabled(getPhone().getPhoneId(),
+                                    getPhone().getContext(), "config_show_srvcc_toast") : false;
+                            if (isShowToast && !shouldTreatAsEmergencyCall()) {
+                                int srvccMessageRes = VideoProfile.isVideo(
+                                        mOriginalConnection.getVideoState()) ?
+                                        R.string.srvcc_video_message : R.string.srvcc_message;
+                                Toast.makeText(getPhone().getContext(),
+                                        srvccMessageRes, Toast.LENGTH_LONG).show();
+                            }
                             setOriginalConnection(connection);
                             mWasImsConnection = false;
                         }
@@ -220,10 +236,19 @@ abstract class TelephonyConnection extends Connection {
                    break;
 
                 case MSG_SUPP_SERVICE_NOTIFY:
+                    if (getPhone() == null) {
+                        break;
+                    }
                     int phoneId = getPhone().getPhoneId();
                     Log.v(TelephonyConnection.this, "MSG_SUPP_SERVICE_NOTIFY on phoneId : "
                             +phoneId);
                     if (msg.obj != null && ((AsyncResult) msg.obj).result != null) {
+                        //Handle call forward history notification only in dialing, alerting states
+                        if (mOriginalConnection != null && ((SuppServiceNotification)((AsyncResult)
+                                msg.obj).result).history != null && !(mConnectionState ==
+                                Call.State.DIALING || mConnectionState == Call.State.ALERTING)) {
+                           return;
+                        }
                         mSsNotification =
                                 (SuppServiceNotification)((AsyncResult) msg.obj).result;
                         final String notificationText =
@@ -263,6 +288,11 @@ abstract class TelephonyConnection extends Connection {
                 case MSG_CDMA_VOICE_PRIVACY_OFF:
                     Log.d(this, "MSG_CDMA_VOICE_PRIVACY_OFF received");
                     setCdmaVoicePrivacy(false);
+                    break;
+                case MSG_CONNECTION_REMOVED:
+                    Log.d(this, "MSG_CONNECTION_REMOVED");
+                    // Some connection has disconnected. Re fresh disable add call property.
+                    refreshDisableAddCall();
                     break;
             }
         }
@@ -815,6 +845,13 @@ abstract class TelephonyConnection extends Connection {
         }
     }
 
+    @Override
+    public void onConnectionRemoved(TelephonyConnection conn) {
+        if (conn != this) {
+            mHandler.obtainMessage(MSG_CONNECTION_REMOVED).sendToTarget();
+        }
+    }
+
     public void performHold() {
         Log.v(this, "performHold");
         // TODO: Can dialing calls be put on hold as well since they take up the
@@ -896,6 +933,20 @@ abstract class TelephonyConnection extends Connection {
         }
     }
 
+    public void performAddParticipant(String participant) {
+        Log.d(this, "performAddParticipant - %s", participant);
+        if (getPhone() != null) {
+            try {
+                // We should send AddParticipant request using connection.
+                // Basically, you can make call to conference with AddParticipant
+                // request on single normal call.
+                getPhone().addParticipant(participant);
+            } catch (CallStateException e) {
+                Log.e(this, e, "Failed to performAddParticipant.");
+            }
+        }
+    }
+
     /**
      * Builds connection capabilities common to all TelephonyConnections. Namely, apply IMS-based
      * capabilities.
@@ -924,6 +975,7 @@ abstract class TelephonyConnection extends Connection {
         newCapabilities = changeBitmask(newCapabilities, CAPABILITY_CAN_PULL_CALL,
                 isExternalConnection() && isPullable());
         newCapabilities = applyConferenceTerminationCapabilities(newCapabilities);
+        newCapabilities = applyAddParticipantCapabilities(newCapabilities);
 
         if (getConnectionCapabilities() != newCapabilities) {
             setConnectionCapabilities(newCapabilities);
@@ -966,7 +1018,24 @@ abstract class TelephonyConnection extends Connection {
         updateConnectionCapabilities();
         updateConnectionProperties();
         if (mOriginalConnection != null) {
-            Uri address = getAddressFromNumber(mOriginalConnection.getAddress());
+            Uri address;
+            boolean showOrigDialString = false;
+            Phone phone = getPhone();
+            if (phone != null && (phone.getPhoneType() == TelephonyManager.PHONE_TYPE_CDMA)
+                    && !mOriginalConnection.isIncoming()) {
+                CarrierConfigManager configManager = (CarrierConfigManager)phone.getContext().
+                        getSystemService(Context.CARRIER_CONFIG_SERVICE);
+                PersistableBundle pb = configManager.getConfigForSubId(phone.getSubId());
+                if (pb != null) {
+                    showOrigDialString = pb.getBoolean("config_show_orig_dial_string_for_cdma");
+                    Log.d(this, "showOrigDialString: " + showOrigDialString);
+                }
+            }
+            if (showOrigDialString) {
+                address = getAddressFromNumber(mOriginalConnection.getOrigDialString());
+            } else {
+                address = getAddressFromNumber(mOriginalConnection.getAddress());
+            }
             int presentation = mOriginalConnection.getNumberPresentation();
             if (!Objects.equals(address, getAddress()) ||
                     presentation != getAddressPresentation()) {
@@ -1005,18 +1074,33 @@ abstract class TelephonyConnection extends Connection {
         mOriginalConnectionExtras.clear();
         mOriginalConnection = originalConnection;
         mOriginalConnection.setTelecomCallId(getTelecomCallId());
-        getPhone().registerForPreciseCallStateChanged(
-                mHandler, MSG_PRECISE_CALL_STATE_CHANGED, null);
-        getPhone().registerForHandoverStateChanged(
-                mHandler, MSG_HANDOVER_STATE_CHANGED, null);
-        getPhone().registerForRingbackTone(mHandler, MSG_RINGBACK_TONE, null);
-        getPhone().registerForDisconnect(mHandler, MSG_DISCONNECT, null);
-        getPhone().registerForSuppServiceNotification(mHandler, MSG_SUPP_SERVICE_NOTIFY, null);
-        getPhone().registerForOnHoldTone(mHandler, MSG_ON_HOLD_TONE, null);
-        getPhone().registerForInCallVoicePrivacyOn(mHandler, MSG_CDMA_VOICE_PRIVACY_ON, null);
-        getPhone().registerForInCallVoicePrivacyOff(mHandler, MSG_CDMA_VOICE_PRIVACY_OFF, null);
+
+        if (getPhone() != null) {
+            getPhone().registerForPreciseCallStateChanged(mHandler,
+                    MSG_PRECISE_CALL_STATE_CHANGED, null);
+            getPhone().registerForHandoverStateChanged(mHandler,
+                    MSG_HANDOVER_STATE_CHANGED, null);
+            getPhone().registerForRingbackTone(mHandler, MSG_RINGBACK_TONE,
+                    null);
+            getPhone().registerForDisconnect(mHandler, MSG_DISCONNECT, null);
+            getPhone().registerForSuppServiceNotification(mHandler,
+                    MSG_SUPP_SERVICE_NOTIFY, null);
+            getPhone().registerForOnHoldTone(mHandler, MSG_ON_HOLD_TONE, null);
+            getPhone().registerForInCallVoicePrivacyOn(mHandler,
+                    MSG_CDMA_VOICE_PRIVACY_ON, null);
+            getPhone().registerForInCallVoicePrivacyOff(mHandler,
+                    MSG_CDMA_VOICE_PRIVACY_OFF, null);
+        }
+
         mOriginalConnection.addPostDialListener(mPostDialListener);
         mOriginalConnection.addListener(mOriginalConnectionListener);
+
+        if (mOriginalConnection != null && mOriginalConnection.getAddress() != null) {
+            mIsEmergencyNumber = PhoneNumberUtils.isEmergencyNumber(mOriginalConnection.
+                    getAddress());
+        }
+
+        updateAddress();
 
         // Set video state and capabilities
         setVideoState(mOriginalConnection.getVideoState());
@@ -1115,6 +1199,10 @@ abstract class TelephonyConnection extends Connection {
     }
 
     private boolean shouldSetDisableAddCallExtra() {
+        if (mOriginalConnection == null) {
+            return false;
+        }
+
         boolean carrierShouldAllowAddCall = mOriginalConnection.shouldAllowAddCallDuringVideoCall();
         if (carrierShouldAllowAddCall) {
             return false;
@@ -1128,9 +1216,18 @@ abstract class TelephonyConnection extends Connection {
         boolean isVowifiEnabled = false;
         if (phone instanceof ImsPhone) {
             ImsPhone imsPhone = (ImsPhone) phone;
+            ImsCall call = null;
             if (imsPhone.getForegroundCall() != null
                     && imsPhone.getForegroundCall().getImsCall() != null) {
-                ImsCall call = imsPhone.getForegroundCall().getImsCall();
+                call = imsPhone.getForegroundCall().getImsCall();
+            } else if (imsPhone.getBackgroundCall() != null
+                    && imsPhone.getBackgroundCall().getImsCall() != null) {
+                call = imsPhone.getBackgroundCall().getImsCall();
+            } else if (imsPhone.getRingingCall() != null
+                    && imsPhone.getRingingCall().getImsCall() != null) {
+                call = imsPhone.getRingingCall().getImsCall();
+            }
+            if (call != null) {
                 isCurrentVideoCall = call.isVideoCall();
                 wasVideoCall = call.wasVideoCall();
             }
@@ -1393,6 +1490,12 @@ abstract class TelephonyConnection extends Connection {
 
                     // Ensure extras are propagated to Telecom.
                     putExtras(mOriginalConnectionExtras);
+                    // If extras contain Conference support information,
+                    // then ensure capabilities are updated and propagated to Telecom.
+                    if (mOriginalConnectionExtras.containsKey(
+                            QtiCallConstants.CONF_SUPPORT_IND_EXTRA_KEY)) {
+                        updateConnectionCapabilities();
+                    }
                 } else {
                     Log.d(this, "Extras update not required");
                 }
@@ -1676,6 +1779,43 @@ abstract class TelephonyConnection extends Connection {
     }
 
     /**
+     * Applies the add participant capabilities to the {@code CallCapabilities} bit-mask.
+     *
+     * @param callCapabilities The {@code CallCapabilities} bit-mask.
+     * @return The capabilities with the add participant capabilities applied.
+     */
+    private int applyAddParticipantCapabilities(int callCapabilities) {
+        int currentCapabilities = callCapabilities;
+        if (isAddParticipantCapable()) {
+            currentCapabilities = changeBitmask(currentCapabilities,
+                    Connection.CAPABILITY_ADD_PARTICIPANT, true);
+        } else {
+            currentCapabilities = changeBitmask(currentCapabilities,
+                    Connection.CAPABILITY_ADD_PARTICIPANT, false);
+        }
+
+        return currentCapabilities;
+    }
+
+    private boolean isAddParticipantCapable() {
+        boolean isCapable = getPhone() != null &&
+               (getPhone().getPhoneType() == PhoneConstants.PHONE_TYPE_IMS) &&
+               !mIsEmergencyNumber && (mConnectionState == Call.State.ACTIVE
+               || mConnectionState == Call.State.HOLDING);
+         /**
+         * For individual IMS calls, if the extra for remote conference support is
+         *     - indicated, then consider the same for add participant capability
+         *     - not indicated, then the add participant capability is same as before.
+         */
+        if (isCapable && (mOriginalConnection != null) && !mIsMultiParty) {
+            isCapable = mOriginalConnectionExtras.getBoolean(
+                    QtiCallConstants.CONF_SUPPORT_IND_EXTRA_KEY, true);
+        }
+        Log.i(this, "isAddParticipantCapable: isCapable = " + isCapable);
+        return isCapable;
+    }
+
+    /**
      * Stores the new original connection capabilities, and applies them to the current connection,
      * notifying any listeners as necessary.
      *
@@ -1839,7 +1979,8 @@ abstract class TelephonyConnection extends Connection {
 
     private void updateStatusHints() {
         boolean isIncoming = isValidRingingCall();
-        if (mIsWifi && (isIncoming || getState() == STATE_ACTIVE)) {
+        if (mIsWifi && (isIncoming || getState() == STATE_ACTIVE) &&
+                (getPhone() != null)) {
             int labelId = isIncoming
                     ? R.string.status_hint_label_incoming_wifi_call
                     : R.string.status_hint_label_wifi_call;
@@ -1924,11 +2065,15 @@ abstract class TelephonyConnection extends Connection {
     private void refreshConferenceSupported() {
         boolean isVideoCall = VideoProfile.isVideo(getVideoState());
         Phone phone = getPhone();
+        if (phone == null) {
+            return;
+        }
+
         boolean isIms = phone.getPhoneType() == PhoneConstants.PHONE_TYPE_IMS;
         boolean isVoWifiEnabled = false;
         if (isIms) {
             ImsPhone imsPhone = (ImsPhone) phone;
-            isVoWifiEnabled = imsPhone.isWifiCallingEnabled();
+            isVoWifiEnabled = ImsUtil.isWfcEnabled(phone.getContext());
         }
         PhoneAccountHandle phoneAccountHandle = isIms ? PhoneUtils
                 .makePstnPhoneAccountHandle(phone.getDefaultPhone())
