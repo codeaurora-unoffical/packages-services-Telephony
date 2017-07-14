@@ -108,6 +108,9 @@ public class PhoneGlobals extends ContextWrapper {
     public static final int AIRPLANE_ON = 1;
     public static final int AIRPLANE_OFF = 0;
 
+    private static final String SUBSIDY_LOCK_SYSTEM_PROPERY
+            = "ro.radio.subsidylock";
+
     /**
      * Allowable values for the wake lock code.
      *   SLEEP means the device can be put to sleep.
@@ -191,7 +194,8 @@ public class PhoneGlobals extends ContextWrapper {
                 // like the "SIM missing" and "Sim locked" cases (bug 1804111).
                 case EVENT_SIM_NETWORK_LOCKED:
                     if (getCarrierConfig().getBoolean(
-                            CarrierConfigManager.KEY_IGNORE_SIM_NETWORK_LOCKED_EVENTS_BOOL)) {
+                            CarrierConfigManager.KEY_IGNORE_SIM_NETWORK_LOCKED_EVENTS_BOOL)
+                            || isSubSidyLockFeatureEnabled()) {
                         // Some products don't have the concept of a "SIM network lock"
                         Log.i(LOG_TAG, "Ignoring EVENT_SIM_NETWORK_LOCKED event; "
                               + "not showing 'SIM network unlock' PIN entry screen");
@@ -903,5 +907,10 @@ public class PhoneGlobals extends ContextWrapper {
      */
     public void setShouldCheckVisualVoicemailConfigurationForMwi(int subId, boolean enabled) {
         notificationMgr.setShouldCheckVisualVoicemailConfigurationForMwi(subId, enabled);
+    }
+
+    private static boolean isSubSidyLockFeatureEnabled() {
+        int prop = SystemProperties.getInt(SUBSIDY_LOCK_SYSTEM_PROPERY, 0);
+        return (prop == 1);
     }
 }
