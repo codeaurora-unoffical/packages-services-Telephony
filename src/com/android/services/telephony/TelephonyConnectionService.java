@@ -361,8 +361,7 @@ public class TelephonyConnectionService extends ConnectionService {
 
         // Convert into emergency number if necessary
         // This is required in some regions (e.g. Taiwan).
-        if (!PhoneUtils.isLocalEmergencyNumber(number) &&
-                PhoneNumberUtils.isConvertToEmergencyNumberEnabled()) {
+        if (!PhoneUtils.isLocalEmergencyNumber(number)) {
             final Phone phone = getPhoneForAccount(request.getAccountHandle(), false);
             // We only do the conversion if the phone is not in service. The un-converted
             // emergency numbers will go to the correct destination when the phone is in-service,
@@ -370,7 +369,7 @@ public class TelephonyConnectionService extends ConnectionService {
             // service.
             if (phone == null || phone.getServiceState().getState()
                     != ServiceState.STATE_IN_SERVICE) {
-                String convertedNumber = PhoneNumberUtils.convertToEmergencyNumber(number);
+                String convertedNumber = PhoneNumberUtils.convertToEmergencyNumber(this, number);
                 if (!TextUtils.equals(convertedNumber, number)) {
                     Log.i(this, "onCreateOutgoingConnection, converted to emergency number");
                     number = convertedNumber;
@@ -978,7 +977,7 @@ public class TelephonyConnectionService extends ConnectionService {
         } catch (CallStateException e) {
             Log.e(this, e, "placeOutgoingConnection, phone.dial exception: " + e);
             int cause = android.telephony.DisconnectCause.OUTGOING_FAILURE;
-            if (e.getError() == CallStateException.ERROR_DISCONNECTED) {
+            if (e.getError() == CallStateException.ERROR_OUT_OF_SERVICE) {
                 cause = android.telephony.DisconnectCause.OUT_OF_SERVICE;
             } else if (e.getError() == CallStateException.ERROR_POWER_OFF) {
                 cause = android.telephony.DisconnectCause.POWER_OFF;
@@ -1023,7 +1022,7 @@ public class TelephonyConnectionService extends ConnectionService {
         TelephonyConnection returnConnection = null;
         int phoneType = phone.getPhoneType();
         if (phoneType == TelephonyManager.PHONE_TYPE_GSM) {
-            returnConnection = new GsmConnection(originalConnection, telecomCallId);
+            returnConnection = new GsmConnection(originalConnection, telecomCallId, isOutgoing);
         } else if (phoneType == TelephonyManager.PHONE_TYPE_CDMA) {
             boolean allowsMute = allowsMute(phone);
             returnConnection = new CdmaConnection(originalConnection, mEmergencyTonePlayer,
@@ -1321,12 +1320,22 @@ public class TelephonyConnectionService extends ConnectionService {
                 TelecomManager.TTY_MODE_OFF) != TelecomManager.TTY_MODE_OFF);
     }
 
+    /**
+     * For outgoing dialed calls, potentially send a ConnectionEvent if the user is on WFC and is
+     * dialing an international number.
+     * @param telephonyConnection The connection.
+     */
     private void maybeSendInternationalCallEvent(TelephonyConnection telephonyConnection) {
+        if (telephonyConnection == null || telephonyConnection.getPhone() == null ||
+                telephonyConnection.getPhone().getDefaultPhone() == null) {
+            return;
+        }
         Phone phone = telephonyConnection.getPhone().getDefaultPhone();
         if (phone instanceof GsmCdmaPhone) {
             GsmCdmaPhone gsmCdmaPhone = (GsmCdmaPhone) phone;
-            if (gsmCdmaPhone.isNotificationOfWfcCallRequired(
-                    telephonyConnection.getOriginalConnection().getOrigDialString())) {
+            if (telephonyConnection.isOutgoingCall() &&
+                    gsmCdmaPhone.isNotificationOfWfcCallRequired(
+                            telephonyConnection.getOriginalConnection().getOrigDialString())) {
                 // Send connection event to InCall UI to inform the user of the fact they
                 // are potentially placing an international call on WFC.
                 Log.i(this, "placeOutgoingConnection - sending international call on WFC " +
