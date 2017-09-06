@@ -464,8 +464,7 @@
     <string name="incall_error_out_of_service_wfc" msgid="8741629779555132471">"Mobile network isn\'t available. Connect to a wireless network to make a call."</string>
     <string name="incall_error_no_phone_number_supplied" msgid="1150414018684246528">"To place a call, enter a valid number."</string>
     <string name="incall_error_call_failed" msgid="5891978320269774095">"Call failed."</string>
-    <!-- no translation found for incall_error_cannot_add_call (8878159278947023326) -->
-    <skip />
+    <string name="incall_error_cannot_add_call" msgid="8878159278947023326">"Call cannot be added at this time. You can try to get in touch by sending a message."</string>
     <string name="incall_error_supp_service_unknown" msgid="655570339115407698">"Service not supported"</string>
     <string name="incall_error_supp_service_switch" msgid="5237002176899962862">"Can\'t switch calls."</string>
     <string name="incall_error_supp_service_separate" msgid="7224393405134545246">"Can\'t separate call."</string>
@@ -585,6 +584,8 @@
     <string name="callFailed_cdma_call_limit" msgid="1556916577171457086">"There are too many active calls. Please end or merge existing calls before placing a new one."</string>
     <string name="callFailed_imei_not_accepted" msgid="132192626901238542">"Unable to connect. Please insert a valid SIM card."</string>
     <string name="callFailed_wifi_lost" msgid="5968076625137297184">"Wi-Fi connection lost. Call ended."</string>
+    <string name="dialFailed_low_battery" msgid="8760548177088774268">"Your video call cannot be placed due to low battery."</string>
+    <string name="callFailed_low_battery" msgid="4913582435905872616">"Video call ended due to low battery."</string>
     <string name="change_pin_title" msgid="7790232089699034029">"Change Voicemail PIN"</string>
     <string name="change_pin_continue_label" msgid="2135088662420163447">"Continue"</string>
     <string name="change_pin_cancel_label" msgid="353535488390948596">"Cancel"</string>

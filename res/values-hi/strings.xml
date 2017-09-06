@@ -464,8 +464,7 @@
     <string name="incall_error_out_of_service_wfc" msgid="8741629779555132471">"मोबाइल नेटवर्क उपलब्‍ध नहीं है. कॉल करने के लिए किसी वायरलेस नेटवर्क से कनेक्‍ट करें."</string>
     <string name="incall_error_no_phone_number_supplied" msgid="1150414018684246528">"कॉल करने के लिए, मान्‍य नंबर डालें."</string>
     <string name="incall_error_call_failed" msgid="5891978320269774095">"कॉल विफल."</string>
-    <!-- no translation found for incall_error_cannot_add_call (8878159278947023326) -->
-    <skip />
+    <string name="incall_error_cannot_add_call" msgid="8878159278947023326">"अभी कॉल जोड़ा नहीं जा सकता. आप संदेश भेजकर संपर्क करने की कोशिश कर सकते हैं."</string>
     <string name="incall_error_supp_service_unknown" msgid="655570339115407698">"सेवा समर्थित नहीं है"</string>
     <string name="incall_error_supp_service_switch" msgid="5237002176899962862">"कॉल स्‍विच नहीं किए जा सकते."</string>
     <string name="incall_error_supp_service_separate" msgid="7224393405134545246">"कॉल अलग नहीं किया जा सकता."</string>
@@ -585,6 +584,8 @@
     <string name="callFailed_cdma_call_limit" msgid="1556916577171457086">"बहुत अधिक कॉल सक्रिय हैं. नया कॉल करने से पहले कृपया मौजूदा कॉल समाप्त करें या उन्हें मिला दें."</string>
     <string name="callFailed_imei_not_accepted" msgid="132192626901238542">"कनेक्ट नहीं हो पा रहा है, कृपया कोई मान्य SIM कार्ड डालें."</string>
     <string name="callFailed_wifi_lost" msgid="5968076625137297184">"वाई-फ़ाई कनेक्शन चला गया. कॉल समाप्त हो गया."</string>
+    <string name="dialFailed_low_battery" msgid="8760548177088774268">"बैटरी कम होने के कारण आप वीडियो कॉल नहीं कर सकते."</string>
+    <string name="callFailed_low_battery" msgid="4913582435905872616">"बैटरी कम होने के कारण वीडियो कॉल समाप्त हो गया."</string>
     <string name="change_pin_title" msgid="7790232089699034029">"वॉइसमेल पिन बदलें"</string>
     <string name="change_pin_continue_label" msgid="2135088662420163447">"जारी रखें"</string>
     <string name="change_pin_cancel_label" msgid="353535488390948596">"अभी नहीं"</string>

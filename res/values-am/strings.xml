@@ -464,8 +464,7 @@
     <string name="incall_error_out_of_service_wfc" msgid="8741629779555132471">"የተንቀሳቃሽ ስልክ አውታረ መረብ አይገኝም። ጥሪ ለማድረግ ከሽቦ አልባ አውታረ መረብ ጋር ያገናኙ።"</string>
     <string name="incall_error_no_phone_number_supplied" msgid="1150414018684246528">"አንድ ጥሪ ለማድረግ የሚሰራ ቁጥር ያስገቡ።"</string>
     <string name="incall_error_call_failed" msgid="5891978320269774095">"ጥሪ አልተሳካም።"</string>
-    <!-- no translation found for incall_error_cannot_add_call (8878159278947023326) -->
-    <skip />
+    <string name="incall_error_cannot_add_call" msgid="8878159278947023326">"ጥሪ አሁን መታከል አይችልም። መልዕክት በመላክ ለማግኘት መሞከር ይችላሉ።"</string>
     <string name="incall_error_supp_service_unknown" msgid="655570339115407698">"አገልግሎት አይደገፍም"</string>
     <string name="incall_error_supp_service_switch" msgid="5237002176899962862">"ጥሪዎችን መቀያየር አልተቻለም።"</string>
     <string name="incall_error_supp_service_separate" msgid="7224393405134545246">"ጥሪን መለየት አልተቻለም።"</string>
@@ -585,6 +584,8 @@
     <string name="callFailed_cdma_call_limit" msgid="1556916577171457086">"እጅግ በጣም ብዙ ንቁ ጥሪዎች አሉ። እባክዎ አዲስ ከማስቀመጥዎ በፊት ያሉትን ጥሪዎች ይጨርሱ ወይም ያዋህዱ።"</string>
     <string name="callFailed_imei_not_accepted" msgid="132192626901238542">"መገናኘት አልተቻለም፣ እባክዎ ትክክል የሆነ SIM ካርድ ያስገቡ።"</string>
     <string name="callFailed_wifi_lost" msgid="5968076625137297184">"የWi-Fi ግንኙነት ጠፍቷል። ጥሪ አብቅቷል።"</string>
+    <string name="dialFailed_low_battery" msgid="8760548177088774268">"የቪዲዮ ጥሪዎ በዝቅተኛ ባትሪ ምክንያት መደረግ አይችልም።"</string>
+    <string name="callFailed_low_battery" msgid="4913582435905872616">"ቪዲዮ ጥሪ በዝቅተኛ ባትሪ ምክንያት ተቋርጧል።"</string>
     <string name="change_pin_title" msgid="7790232089699034029">"የድምፅ መልዕክት ፒን ለውጥ"</string>
     <string name="change_pin_continue_label" msgid="2135088662420163447">"ቀጥል"</string>
     <string name="change_pin_cancel_label" msgid="353535488390948596">"ይቅር"</string>
