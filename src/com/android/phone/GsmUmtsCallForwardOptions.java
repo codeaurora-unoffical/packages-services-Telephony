@@ -7,9 +7,11 @@ import com.android.internal.telephony.Phone;
 import android.app.ActionBar;
 import android.app.AlertDialog;
 import android.app.Dialog;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.database.Cursor;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
@@ -21,6 +23,8 @@ import android.telephony.ServiceState;
 import android.telephony.CarrierConfigManager;
 import android.util.Log;
 import android.view.MenuItem;
+import com.android.internal.telephony.PhoneConstants;
+import com.android.internal.telephony.TelephonyIntents;
 
 import java.util.ArrayList;
 import android.telephony.SubscriptionManager;
@@ -57,6 +61,7 @@ public class GsmUmtsCallForwardOptions extends TimeConsumingPreferenceActivity
     private Phone mPhone;
     private SubscriptionInfoHelper mSubscriptionInfoHelper;
     private int mServiceClass;
+    private final BroadcastReceiver mReceiver = new PhoneAppBroadcastReceiver();
 
     @Override
     protected void onCreate(Bundle icicle) {
@@ -64,43 +69,7 @@ public class GsmUmtsCallForwardOptions extends TimeConsumingPreferenceActivity
 
         mSubscriptionInfoHelper = new SubscriptionInfoHelper(this, getIntent());
         mPhone = mSubscriptionInfoHelper.getPhone();
-        final SubscriptionManager subscriptionManager = SubscriptionManager.from(this);
-        // check the active data sub.
-        int sub = mPhone.getSubId();
-        int defaultDataSub = subscriptionManager.getDefaultDataSubscriptionId();
-        CarrierConfigManager configManager = (CarrierConfigManager)mPhone.
-                getContext().getSystemService(Context.CARRIER_CONFIG_SERVICE);
-        PersistableBundle pb = configManager.getConfigForSubId(mPhone.getSubId());
-        boolean checkData = pb.getBoolean("check_mobile_data_for_cf");
-        if (mPhone != null && mPhone.isUtEnabled() && checkData) {
-            int activeNetworkType = getActiveNetworkType();
-            boolean isDataRoaming = mPhone.getServiceState().getDataRoaming();
-            boolean isDataRoamingEnabled = mPhone.getDataRoamingEnabled();
-            boolean promptForDataRoaming = isDataRoaming && !isDataRoamingEnabled;
-            Log.d(LOG_TAG, "activeNetworkType = " + getActiveNetworkType() + ", sub = " + sub +
-                    ", defaultDataSub = " + defaultDataSub + ", isDataRoaming = " +
-                    isDataRoaming + ", isDataRoamingEnabled= " + isDataRoamingEnabled);
-            if ((activeNetworkType != ConnectivityManager.TYPE_MOBILE
-                    || sub != defaultDataSub)
-                    && !(activeNetworkType == ConnectivityManager.TYPE_NONE
-                    && promptForDataRoaming)) {
-                   if (DBG) Log.d(LOG_TAG, "please open mobile network for UT settings!");
-                   String title = (String)this.getResources().getText(R.string.no_mobile_data);
-                   String message = (String)this.getResources()
-                           .getText(R.string.cf_setting_mobile_data_alert);
-                   showAlertDialog(title, message);
-                   return;
-            }
-            if (promptForDataRoaming) {
-                   if (DBG) Log.d(LOG_TAG, "please open data roaming for UT settings!");
-                   String title = (String)this.getResources()
-                           .getText(R.string.no_mobile_data_roaming);
-                   String message = (String)this.getResources()
-                           .getText(R.string.cf_setting_mobile_data_roaming_alert);
-                   showAlertDialog(title, message);
-                   return;
-            }
-        }
+        checkDataStaus();
 
         addPreferencesFromResource(R.xml.callforward_options);
 
@@ -145,6 +114,63 @@ public class GsmUmtsCallForwardOptions extends TimeConsumingPreferenceActivity
         }
     }
 
+    /**
+     * Receiver for intent broadcasts the Phone app cares about.
+     */
+    private class PhoneAppBroadcastReceiver extends BroadcastReceiver {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+            if (action.equals(TelephonyIntents.ACTION_ANY_DATA_CONNECTION_STATE_CHANGED)) {
+                 String state = intent.getStringExtra(PhoneConstants.STATE_KEY);
+                if (PhoneConstants.DataState.DISCONNECTED.name().equals(state)) {
+                    Log.d(LOG_TAG, "data is disconnected.");
+                    checkDataStaus();
+                }
+            }
+        }
+    }
+
+    public void checkDataStaus() {
+        final SubscriptionManager subscriptionManager = SubscriptionManager.from(this);
+        // check the active data sub.
+        int sub = mPhone.getSubId();
+        int defaultDataSub = subscriptionManager.getDefaultDataSubscriptionId();
+        CarrierConfigManager configManager = (CarrierConfigManager)mPhone.
+                getContext().getSystemService(Context.CARRIER_CONFIG_SERVICE);
+        PersistableBundle pb = configManager.getConfigForSubId(mPhone.getSubId());
+        boolean checkData = pb.getBoolean("check_mobile_data_for_cf");
+        if (mPhone != null && mPhone.isUtEnabled() && checkData) {
+            int activeNetworkType = getActiveNetworkType();
+            boolean isDataRoaming = mPhone.getServiceState().getDataRoaming();
+            boolean isDataRoamingEnabled = mPhone.getDataRoamingEnabled();
+            boolean promptForDataRoaming = isDataRoaming && !isDataRoamingEnabled;
+            Log.d(LOG_TAG, "activeNetworkType = " + getActiveNetworkType() + ", sub = " + sub +
+                    ", defaultDataSub = " + defaultDataSub + ", isDataRoaming = " +
+                    isDataRoaming + ", isDataRoamingEnabled= " + isDataRoamingEnabled);
+            if ((activeNetworkType != ConnectivityManager.TYPE_MOBILE
+                    || sub != defaultDataSub)
+                    && !(activeNetworkType == ConnectivityManager.TYPE_NONE
+                    && promptForDataRoaming)) {
+                   if (DBG) Log.d(LOG_TAG, "Show alert dialog if mobile network is disabled");
+                   String title = (String)this.getResources().getText(R.string.no_mobile_data);
+                   String message = (String)this.getResources()
+                           .getText(R.string.cf_setting_mobile_data_alert);
+                   showAlertDialog(title, message);
+                   return;
+            }
+            if (promptForDataRoaming) {
+                   if (DBG) Log.d(LOG_TAG, "Show alert dialog if data roaming is disabled");
+                   String title = (String)this.getResources()
+                           .getText(R.string.no_mobile_data_roaming);
+                   String message = (String)this.getResources()
+                           .getText(R.string.cf_setting_mobile_data_roaming_alert);
+                   showAlertDialog(title, message);
+                   return;
+            }
+        }
+    }
+
     @Override
     public void onClick(DialogInterface dialog, int id) {
         if (id == DialogInterface.BUTTON_POSITIVE) {
@@ -173,6 +199,10 @@ public class GsmUmtsCallForwardOptions extends TimeConsumingPreferenceActivity
     public void onResume() {
         super.onResume();
 
+        IntentFilter intentFilter = new IntentFilter();
+        intentFilter.addAction(TelephonyIntents.ACTION_ANY_DATA_CONNECTION_STATE_CHANGED);
+        registerReceiver(mReceiver, intentFilter);
+
         if (mFirstResume) {
             if (mIcicle == null) {
                 if (DBG) Log.d(LOG_TAG, "start to init ");
@@ -193,6 +223,15 @@ public class GsmUmtsCallForwardOptions extends TimeConsumingPreferenceActivity
             mFirstResume = false;
             mIcicle = null;
         }
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        if (mReceiver != null) {
+            unregisterReceiver(mReceiver);
+        }
+
     }
 
     @Override

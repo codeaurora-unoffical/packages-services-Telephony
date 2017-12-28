@@ -16,6 +16,8 @@
 
 package com.android.phone;
 
+import android.app.AlertDialog;
+import android.app.Dialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -39,13 +41,17 @@ import android.telephony.SubscriptionManager;
 import android.util.Log;
 import android.view.MenuItem;
 
+import com.android.ims.ImsManager;
+import com.android.internal.telephony.imsphone.ImsPhone;
 import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.PhoneConstants;
 import com.android.internal.telephony.SubscriptionController;
 
 import java.util.List;
 
-public class CdmaCallOptions extends PreferenceActivity {
+public class CdmaCallOptions extends TimeConsumingPreferenceActivity
+                implements DialogInterface.OnClickListener,
+                DialogInterface.OnCancelListener {
     private static final String LOG_TAG = "CdmaCallOptions";
     private final boolean DBG = (PhoneGlobals.DBG_LEVEL >= 2);
 
@@ -54,6 +60,8 @@ public class CdmaCallOptions extends PreferenceActivity {
     public static final String CALL_FORWARD_INTENT = "org.codeaurora.settings.CDMA_CALL_FORWARDING";
     public static final String CALL_WAITING_INTENT = "org.codeaurora.settings.CDMA_CALL_WAITING";
 
+    private CallWaitingCheckBoxPreference mCWButton;
+    private static final String BUTTON_CW_KEY = "button_cw_ut_key";
 
     private static boolean isActivityPresent(Context context, String intentName) {
         PackageManager pm = context.getPackageManager();
@@ -76,6 +84,50 @@ public class CdmaCallOptions extends PreferenceActivity {
     public static boolean isCdmaCallWaitingActivityPresent(Context context) {
         return isActivityPresent(context, CALL_WAITING_INTENT);
     }
+
+    //prompt dialog to notify user turn off Enhance 4G LTE switch
+    private boolean isPromptTurnOffEnhance4GLTE(Phone phone) {
+        if (phone == null) {
+            return false;
+        }
+
+        ImsPhone imsPhone = (ImsPhone)phone.getImsPhone();
+        return (imsPhone != null)
+             && ImsManager.isEnhanced4gLteModeSettingEnabledByUser(this)
+             && ImsManager.isNonTtyOrTtyOnVolteEnabled(this)
+             && !phone.isUtEnabled()
+             && !phone.isVolteEnabled()
+             && !phone.isVideoEnabled();
+    }
+
+    private void showAlertDialog(String title, String message) {
+        Dialog dialog = new AlertDialog.Builder(this)
+            .setTitle(title)
+            .setMessage(message)
+            .setIconAttribute(android.R.attr.alertDialogIcon)
+            .setPositiveButton(android.R.string.ok, this)
+            .setNegativeButton(android.R.string.cancel, this)
+            .setOnCancelListener(this)
+            .create();
+        dialog.show();
+    }
+
+    @Override
+    public void onClick(DialogInterface dialog, int id) {
+        if (id == DialogInterface.BUTTON_POSITIVE) {
+            Intent newIntent = new Intent("android.settings.SETTINGS");
+            newIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(newIntent);
+        }
+        finish();
+        return;
+    }
+
+    @Override
+     public void onCancel(DialogInterface dialog) {
+         finish();
+         return;
+     }
 
     @Override
     protected void onCreate(Bundle icicle) {
@@ -109,14 +161,28 @@ public class CdmaCallOptions extends PreferenceActivity {
             }
         }
 
+        if(phone.getPhoneType() == PhoneConstants.PHONE_TYPE_CDMA
+                && isPromptTurnOffEnhance4GLTE(phone)
+                && carrierConfig.getBoolean(CarrierConfigManager.KEY_CDMA_CW_CF_ENABLED_BOOL)) {
+            String title = (String)this.getResources()
+                .getText(R.string.ut_not_support);
+            String msg = (String)this.getResources()
+                .getText(R.string.ct_ut_not_support_close_4glte);
+            showAlertDialog(title, msg);
+        }
+
+        mCWButton = (CallWaitingCheckBoxPreference) prefScreen.findPreference(BUTTON_CW_KEY);
         if (phone.getPhoneType() != PhoneConstants.PHONE_TYPE_CDMA
                 || !carrierConfig.getBoolean(CarrierConfigManager.KEY_CDMA_CW_CF_ENABLED_BOOL)
                 || !isCdmaCallWaitingActivityPresent(this)) {
             Log.d(LOG_TAG, "Disabled CW CF");
             PreferenceScreen prefCW = (PreferenceScreen)
-                    prefScreen.findPreference("button_cw_key");
+                 prefScreen.findPreference("button_cw_key");
+            if (mCWButton != null) {
+                 prefScreen.removePreference(mCWButton);
+            }
             if (prefCW != null) {
-                prefCW.setEnabled(false);
+                 prefCW.setEnabled(false);
             }
             PreferenceScreen prefCF = (PreferenceScreen)
                     prefScreen.findPreference("button_cf_expand_key");
@@ -126,19 +192,28 @@ public class CdmaCallOptions extends PreferenceActivity {
         } else {
             Log.d(LOG_TAG, "Enabled CW CF");
             PreferenceScreen prefCW = (PreferenceScreen)
-                    prefScreen.findPreference("button_cw_key");
+                prefScreen.findPreference("button_cw_key");
 
-            if (prefCW != null) {
-                prefCW.setOnPreferenceClickListener(
-                        new Preference.OnPreferenceClickListener() {
-                            @Override
-                            public boolean onPreferenceClick(Preference preference) {
-                                Intent intent = new Intent(CALL_WAITING_INTENT);
-                                intent.putExtra(PhoneConstants.SUBSCRIPTION_KEY, phone.getSubId());
-                                startActivity(intent);
-                                return true;
-                            }
-                        });
+            if (phone.isUtEnabled()) {
+                prefScreen.removePreference(prefCW);
+                mCWButton.init(this, false, phone);
+            } else {
+                if (mCWButton != null) {
+                     prefScreen.removePreference(mCWButton);
+                }
+                if (prefCW != null) {
+                    prefCW.setOnPreferenceClickListener(
+                            new Preference.OnPreferenceClickListener() {
+                                @Override
+                                public boolean onPreferenceClick(Preference preference) {
+                                    Intent intent = new Intent(CALL_WAITING_INTENT);
+                                    intent.putExtra(PhoneConstants.SUBSCRIPTION_KEY,
+                                        phone.getSubId());
+                                    startActivity(intent);
+                                    return true;
+                                }
+                            });
+                }
             }
             PreferenceScreen prefCF = (PreferenceScreen)
                     prefScreen.findPreference("button_cf_expand_key");
@@ -147,7 +222,10 @@ public class CdmaCallOptions extends PreferenceActivity {
                         new Preference.OnPreferenceClickListener() {
                             @Override
                             public boolean onPreferenceClick(Preference preference) {
-                                Intent intent = new Intent(CALL_FORWARD_INTENT);
+                                Phone phone = subInfoHelper.getPhone();
+                                Intent intent = phone.isUtEnabled() ?
+                                    subInfoHelper.getIntent(CallForwardType.class)
+                                    : new Intent(CALL_FORWARD_INTENT);
                                 intent.putExtra(PhoneConstants.SUBSCRIPTION_KEY, phone.getSubId());
                                 startActivity(intent);
                                 return true;
