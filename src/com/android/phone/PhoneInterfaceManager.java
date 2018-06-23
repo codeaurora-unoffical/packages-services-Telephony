@@ -3289,9 +3289,7 @@ public class PhoneInterfaceManager extends ITelephony.Stub {
         final Phone phone = getPhone(subId);
 
         if (phone != null) {
-            //commented temporarily to pass compilation since isVideoWifiCallingEnabled
-            // has not been merged
-            //return phone.isVideoWifiCallingEnabled();
+            return phone.isVideoWifiCallingEnabled();
         }
         return false;
     }
