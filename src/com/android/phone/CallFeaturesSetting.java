@@ -393,7 +393,7 @@ public class CallFeaturesSetting extends PreferenceActivity
                 mImsMgr.isVtProvisionedOnDeviceForSlot() &&
                 (carrierConfig.getBoolean(
                         CarrierConfigManager.KEY_IGNORE_DATA_ENABLED_CHANGED_FOR_VIDEO_CALLS)
-                        || mPhone.mDcTracker.isDataEnabled())) {
+                        || mPhone.mDcTracker.isDataEnabled()) && (mPhone.getImsPhone() != null)) {
             final boolean isVideoCallingEnabledForSlot =
                     mImsMgr.isVtEnabledByPlatformForSlot()
                     && mImsMgr.isEnhanced4gLteModeSettingEnabledByUserForSlot()
