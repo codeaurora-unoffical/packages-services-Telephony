@@ -35,6 +35,8 @@ import com.android.internal.telephony.PhoneFactory;
 import com.android.phone.PhoneGlobals;
 import com.android.phone.R;
 
+import org.codeaurora.ims.utils.QtiImsExtUtils;
+
 public class AccessibilitySettingsFragment extends PreferenceFragment {
     private static final String LOG_TAG = AccessibilitySettingsFragment.class.getSimpleName();
     private static final boolean DBG = (PhoneGlobals.DBG_LEVEL >= 2);
@@ -95,6 +97,13 @@ public class AccessibilitySettingsFragment extends PreferenceFragment {
         } else {
             getPreferenceScreen().removePreference(mButtonHac);
             mButtonHac = null;
+        }
+        if (QtiImsExtUtils.isCarrierOneSupported()) {
+            if (mButtonTty != null) {
+                // TTY mode added in Call Settings.
+                getPreferenceScreen().removePreference(mButtonTty);
+                mButtonTty = null;
+            }
         }
     }
 
