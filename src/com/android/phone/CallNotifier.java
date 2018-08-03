@@ -185,7 +185,7 @@ public class CallNotifier extends Handler {
                 new OnSubscriptionsChangedListener() {
                     @Override
                     public void onSubscriptionsChanged() {
-                        updatePhoneStateListeners();
+                        updatePhoneStateListeners(false);
                     }
                 });
         IntentFilter intentFilter = new IntentFilter(ACTION_UICC_MANUAL_PROVISION_STATUS_CHANGED);
@@ -662,7 +662,7 @@ public class CallNotifier extends Handler {
                 SHOW_MESSAGE_NOTIFICATION_TIME);
     }
 
-    public void updatePhoneStateListeners() {
+    public void updatePhoneStateListeners(boolean enableNotificationSound) {
         List<SubscriptionInfo> subInfos = mSubscriptionManager.getActiveSubscriptionInfoList();
 
         // Unregister phone listeners for inactive subscriptions.
@@ -686,7 +686,8 @@ public class CallNotifier extends Handler {
                     mApplication.notificationMgr.updateCfi(subId, mCFIStatus.get(subId));
                 }
                 if (mMWIStatus.containsKey(subId)) {
-                    mApplication.notificationMgr.updateMwi(subId, mMWIStatus.get(subId));
+                    mApplication.notificationMgr.updateMwi(subId, mMWIStatus.get(subId),
+                            enableNotificationSound);
                 }
             }
         }

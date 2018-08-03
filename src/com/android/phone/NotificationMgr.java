@@ -140,27 +140,8 @@ public class NotificationMgr {
         mNotificationComponent = notificationComponent != null
                 ? ComponentName.unflattenFromString(notificationComponent) : null;
 
-        mSubscriptionManager.addOnSubscriptionsChangedListener(
-                new OnSubscriptionsChangedListener() {
-                    @Override
-                    public void onSubscriptionsChanged() {
-                        updateActivePhonesMwi();
-                    }
-                });
     }
 
-    public void updateActivePhonesMwi() {
-        List<SubscriptionInfo> subInfos = mSubscriptionManager.getActiveSubscriptionInfoList();
-
-        if (subInfos == null) {
-            return;
-        }
-
-        for (int i = 0; i < subInfos.size(); i++) {
-            int subId = subInfos.get(i).getSubscriptionId();
-            refreshMwi(subId);
-        }
-    }
 
     /**
      * Initialize the singleton NotificationMgr instance.
@@ -275,7 +256,8 @@ public class NotificationMgr {
             }
         }
 
-        Log.i(LOG_TAG, "updateMwi(): subId " + subId + " update to " + visible);
+        Log.i(LOG_TAG, "updateMwi(): subId " + subId + " update to " + visible +
+                " enableNotificationSound: " + enableNotificationSound);
         mMwiVisible.put(subId, visible);
 
         if (visible) {
