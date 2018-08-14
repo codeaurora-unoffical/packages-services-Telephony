@@ -428,7 +428,7 @@ abstract class TelephonyConnection extends Connection implements Holdable,
      */
     public abstract static class TelephonyConnectionListener {
         public void onOriginalConnectionConfigured(TelephonyConnection c) {}
-        public void onOriginalConnectionRetry(TelephonyConnection c, boolean isPermanentFailure) {}
+        public void onOriginalConnectionRetry(TelephonyConnection c, int cause) {}
     }
 
     private final PostDialListener mPostDialListener = new PostDialListener() {
@@ -1107,19 +1107,8 @@ abstract class TelephonyConnection extends Connection implements Holdable,
         updateConnectionProperties();
         if (mOriginalConnection != null) {
             Uri address;
-            boolean showOrigDialString = false;
-            Phone phone = getPhone();
-            if (phone != null && (phone.getPhoneType() == TelephonyManager.PHONE_TYPE_CDMA)
-                    && !mOriginalConnection.isIncoming()) {
-                CarrierConfigManager configManager = (CarrierConfigManager)phone.getContext().
-                        getSystemService(Context.CARRIER_CONFIG_SERVICE);
-                PersistableBundle pb = configManager.getConfigForSubId(phone.getSubId());
-                if (pb != null) {
-                    showOrigDialString = pb.getBoolean("config_show_orig_dial_string_for_cdma");
-                    Log.d(this, "showOrigDialString: " + showOrigDialString);
-                }
-            }
-            if (showOrigDialString) {
+            if (isShowingOriginalDialString()
+                    && mOriginalConnection.getOrigDialString() != null) {
                 address = getAddressFromNumber(mOriginalConnection.getOrigDialString());
             } else {
                 address = getAddressFromNumber(mOriginalConnection.getAddress());
@@ -1158,6 +1147,14 @@ abstract class TelephonyConnection extends Connection implements Holdable,
 
     void setOriginalConnection(com.android.internal.telephony.Connection originalConnection) {
         Log.v(this, "new TelephonyConnection, originalConnection: " + originalConnection);
+        if (mOriginalConnection != null && originalConnection != null
+               && !originalConnection.isIncoming()
+               && originalConnection.getOrigDialString() == null
+               && isShowingOriginalDialString()) {
+            Log.i(this, "new original dial string is null, convert to: "
+                   +  mOriginalConnection.getOrigDialString());
+            originalConnection.setConverted(mOriginalConnection.getOrigDialString());
+        }
         clearOriginalConnection();
         mOriginalConnectionExtras.clear();
         mOriginalConnection = originalConnection;
@@ -1692,7 +1689,11 @@ abstract class TelephonyConnection extends Connection implements Holdable,
                     setRinging();
                     break;
                 case DISCONNECTED:
-                    if (shouldTreatAsEmergencyCall()
+                    if (cause == android.telephony.DisconnectCause
+                            .IMS_SIP_ALTERNATE_EMERGENCY_CALL) {
+                        Log.i(this, "Received Alternate emergency call disconnect cause");
+                        fireOnOriginalConnectionRetryDial(cause);
+                    } else if (shouldTreatAsEmergencyCall()
                             && (cause
                             == android.telephony.DisconnectCause.EMERGENCY_TEMP_FAILURE
                             || cause
@@ -1702,8 +1703,7 @@ abstract class TelephonyConnection extends Connection implements Holdable,
                         // the state to disconnected and will instead tell the
                         // TelephonyConnectionService to
                         // create a new originalConnection using the new Slot.
-                        fireOnOriginalConnectionRetryDial(cause
-                                == android.telephony.DisconnectCause.EMERGENCY_PERM_FAILURE);
+                        fireOnOriginalConnectionRetryDial(cause);
                     } else {
                         if (mSsNotification != null) {
                             setDisconnected(DisconnectCauseUtil.toTelecomDisconnectCause(
@@ -2260,9 +2260,9 @@ abstract class TelephonyConnection extends Connection implements Holdable,
         }
     }
 
-    private final void fireOnOriginalConnectionRetryDial(boolean isPermanentFailure) {
+    private final void fireOnOriginalConnectionRetryDial(int cause) {
         for (TelephonyConnectionListener l : mTelephonyListeners) {
-            l.onOriginalConnectionRetry(this, isPermanentFailure);
+            l.onOriginalConnectionRetry(this, cause);
         }
     }
 
@@ -2356,6 +2356,20 @@ abstract class TelephonyConnection extends Connection implements Holdable,
         result.put(ImsCallProfile.EXTRA_DISPLAY_TEXT,
                 android.telecom.Connection.EXTRA_CALL_SUBJECT);
         return Collections.unmodifiableMap(result);
+    }
+
+    private boolean isShowingOriginalDialString() {
+        boolean showOrigDialString = false;
+        Phone phone = getPhone();
+        if (phone != null && (phone.getPhoneType() == TelephonyManager.PHONE_TYPE_CDMA)
+                && !mOriginalConnection.isIncoming()) {
+            PersistableBundle pb = getCarrierConfig();
+            if (pb != null) {
+                showOrigDialString = pb.getBoolean("config_show_orig_dial_string_for_cdma");
+                Log.d(this, "showOrigDialString: " + showOrigDialString);
+            }
+        }
+        return showOrigDialString;
     }
 
     /**
