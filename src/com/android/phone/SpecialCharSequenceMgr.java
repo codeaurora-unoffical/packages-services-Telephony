@@ -67,13 +67,13 @@ public class SpecialCharSequenceMgr {
     private static final String SUBSIDY_STATUS = "subsidy_status";
     private static final String MMI_SHOW_SUBSIDY_UNLOCK_SCREEN = "*#5625";
     private static final String ACTION_SHOW_UNLOCK_SCREEN
-            = "org.codeaurora.intent.action.ACTION_LOCKSCREEN";
+            = "com.slc.action.ACTION_SUBSIDYLOCK_STATE";
     public static final String EXTRA_INTENT_KEY_ENTER_CODE_SCREEN
             = "INTENT_KEY_ENTER_CODE_SCREEN";
     public static final String EXTRA_INTENT_KEY_SHOW_PIN
             = "INTENT_KEY_SHOW_PIN";
     public static final String PERMISSION_SHOW_UNLOCK_SCREEN
-            = "com.codeaurora.permission.SUBSIDYLOCK";
+            = "com.slc.permission.SUBSIDYLOCK";
 
     /** This class is never instantiated. */
     private SpecialCharSequenceMgr() {
