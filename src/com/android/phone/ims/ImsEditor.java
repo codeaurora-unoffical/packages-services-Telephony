@@ -78,6 +78,7 @@ public class ImsEditor extends PreferenceActivity
     private ListPreference mCallTypePref;
     private IImsService mImsService = null;
     private boolean mIsImsListenerRegistered = false;
+    private boolean mEnablePref = true;
 
     enum PreferenceKey {
         CALLTYPE(R.string.call_type, R.string.default_call_type,
@@ -166,6 +167,7 @@ public class ImsEditor extends PreferenceActivity
      */
     private void enablePref(Preference pref, boolean enable) {
         if (pref != null) {
+            mEnablePref = enable;
             pref.setSelectable(enable);
             pref.setEnabled(enable);
         }
@@ -183,10 +185,8 @@ public class ImsEditor extends PreferenceActivity
                         Toast toast = Toast.makeText(getApplicationContext(),
                                 "Querying/Setting IMS Service Failed", Toast.LENGTH_LONG);
                         toast.show();
-                        enablePref(mUseAlwaysPref, true);
-                    } else {
-                        enablePref(mUseAlwaysPref, false);
                     }
+                    enablePref(mUseAlwaysPref, true);
                     break;
                 default:
                     Log.e(TAG, "Unhandled message " + msg.what);
@@ -228,7 +228,6 @@ public class ImsEditor extends PreferenceActivity
                 try {
                     mImsService.queryImsServiceStatus(
                             EVENT_QUERY_SERVICE_STATUS, createMessenger());
-                    enablePref(mUseAlwaysPref, false);
                 }
                 catch (Exception e) {
                     Log.e(TAG, "Exception = " + e);
@@ -404,7 +403,7 @@ public class ImsEditor extends PreferenceActivity
             mSharedPreferences.setCallTypeSelectable(false);
         }
 
-        if (voiceSupp | vtSupp) {
+        if (mEnablePref | voiceSupp | vtSupp) {
             enablePref(mUseAlwaysPref, true);
         } else {
             enablePref(mUseAlwaysPref, false);
