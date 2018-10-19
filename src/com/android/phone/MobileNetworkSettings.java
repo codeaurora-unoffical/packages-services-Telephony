@@ -1126,6 +1126,7 @@ public class MobileNetworkSettings extends Activity  {
                         case Phone.NT_MODE_LTE_TDSCDMA_GSM_WCDMA:
                         case Phone.NT_MODE_TDSCDMA_CDMA_EVDO_GSM_WCDMA:
                         case Phone.NT_MODE_LTE_TDSCDMA_CDMA_EVDO_GSM_WCDMA:
+                        case Phone.NT_MODE_LTE_GSM:
                             // This is one of the modes we recognize
                             modemNetworkMode = buttonNetworkMode;
                             break;
@@ -1172,6 +1173,7 @@ public class MobileNetworkSettings extends Activity  {
                         case Phone.NT_MODE_LTE_TDSCDMA_GSM_WCDMA:
                         case Phone.NT_MODE_TDSCDMA_CDMA_EVDO_GSM_WCDMA:
                         case Phone.NT_MODE_LTE_TDSCDMA_CDMA_EVDO_GSM_WCDMA:
+                        case Phone.NT_MODE_LTE_GSM:
                             // This is one of the modes we recognize
                             modemNetworkMode = buttonNetworkMode;
                             break;
@@ -1355,6 +1357,7 @@ public class MobileNetworkSettings extends Activity  {
                     break;
                 case Phone.NT_MODE_LTE_TDSCDMA_GSM:
                 case Phone.NT_MODE_LTE_TDSCDMA_GSM_WCDMA:
+                case Phone.NT_MODE_LTE_GSM:
                 case Phone.NT_MODE_LTE_GSM_WCDMA:
                     mButtonPreferredNetworkMode.setSummary(
                             R.string.preferred_network_mode_lte_gsm_wcdma_summary);
@@ -1428,6 +1431,7 @@ public class MobileNetworkSettings extends Activity  {
                         mButtonEnabledNetworks.setSummary(R.string.network_global);
                     }
                     break;
+                case Phone.NT_MODE_LTE_GSM:
                 case Phone.NT_MODE_LTE_GSM_WCDMA:
                     if (isWorldMode()) {
                         mButtonEnabledNetworks.setSummary(
