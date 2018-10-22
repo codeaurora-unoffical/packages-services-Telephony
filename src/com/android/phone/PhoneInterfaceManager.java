@@ -71,6 +71,7 @@ import android.telephony.UssdResponse;
 import android.telephony.VisualVoicemailSmsFilterSettings;
 import android.text.TextUtils;
 import android.util.ArraySet;
+import android.util.EventLog;
 import android.util.Log;
 import android.util.Pair;
 import android.util.Slog;
@@ -1220,6 +1221,21 @@ public class PhoneInterfaceManager extends ITelephony.Stub {
      * @return true is a call was ended
      */
     public boolean endCallForSubscriber(int subId) {
+        Phone phone = getPhone(subId);
+        CallManager callManager = PhoneGlobals.getInstance().getCallManager();
+
+        // When device is in emergency callback mode or there is an active emergency call, do not
+        // allow the caller to end the call unless they hold modify phone state permission.
+        if (phone != null && callManager != null
+                && (phone.isInEcm() || PhoneUtils.isInEmergencyCall(callManager))
+                && mApp.checkCallingOrSelfPermission(permission.MODIFY_PHONE_STATE)
+                        != PackageManager.PERMISSION_GRANTED) {
+
+            Log.i(LOG_TAG, "endCall: called without modify phone state for emergency call.");
+            EventLog.writeEvent(0x534e4554, "67862398", -1, "");
+            throw new SecurityException(
+                    "MODIFY_PHONE_STATE permission required to end an emergency call.");
+        }
         enforceCallPermission();
         return (Boolean) sendRequest(CMD_END_CALL, null, new Integer(subId));
     }
@@ -2788,9 +2804,16 @@ public class PhoneInterfaceManager extends ITelephony.Stub {
         enforceModifyPermission();
         int dunRequired = Settings.Global.getInt(mPhone.getContext().getContentResolver(),
                 Settings.Global.TETHER_DUN_REQUIRED, 2);
+        boolean hasTetherApn = false;
+        Phone phone = getPhone(mSubscriptionController.getDefaultDataSubId());
+        if (phone != null) {
+            hasTetherApn = phone.hasMatchedTetherApnSetting();
+        } else {
+            loge("getTetherApnRequired: no phone for DDS sub");
+        }
         // If not set, check net.tethering.noprovisioning, TETHER_DUN_APN setting and
         // config_tether_apndata.
-        if (dunRequired == 2 && mPhone.hasMatchedTetherApnSetting()) {
+        if (dunRequired == 2 && hasTetherApn) {
             dunRequired = 1;
         }
         return dunRequired;
