@@ -29,7 +29,7 @@
     <string name="ussdRunning" msgid="485588686340541690">"កូដ USSD កំពុង​ដំណើរការ…"</string>
     <string name="mmiCancelled" msgid="2771923949751842276">"បាន​បោះបង់​កូដ MMI"</string>
     <string name="cancel" msgid="5044513931633602634">"បោះ​បង់​"</string>
-    <string name="enter_input" msgid="1810529547726803893">"សារ USSD ត្រូវ​តែ​មាន​តួអក្សរ​ចន្លោះ <xliff:g id="MIN_LEN">%d</xliff:g> និង <xliff:g id="MAX_LEN">%d</xliff:g> ។ សូម​ព្យាយាម​ម្ដងទៀត​។"</string>
+    <string name="enter_input" msgid="1810529547726803893">"សារ USSD ត្រូវ​តែ​មាន​តួអក្សរ​ចន្លោះ <xliff:g id="MIN_LEN">%1$d</xliff:g> និង <xliff:g id="MAX_LEN">%2$d</xliff:g> ។ សូម​ព្យាយាម​ម្ដងទៀត​។"</string>
     <string name="manageConferenceLabel" msgid="4691922394301969053">"គ្រប់គ្រង​ការ​ហៅ​​ជា​សន្និសីទ"</string>
     <string name="ok" msgid="3811371167865772377">"យល់​ព្រម​"</string>
     <string name="audio_mode_speaker" msgid="27649582100085266">"អូប៉ាល័រ"</string>
@@ -238,6 +238,10 @@
     <string name="enhanced_4g_lte_mode_title" msgid="522191650223239171">"​របៀប 4G LTE ធ្វើឲ្យ​ប្រសើរ​ឡើង"</string>
     <!-- no translation found for enhanced_4g_lte_mode_title_variant:0 (4447454259719947406) -->
     <string name="enhanced_4g_lte_mode_summary" msgid="2332175070522125850">"ប្រើសេវាកម្ម LTE ដើម្បីធ្វើឲ្យសម្លេង និងការទំនាក់ទំនងផ្សេងទៀតប្រសើរឡើង (បានណែនាំ)"</string>
+    <string name="enhanced_4g_lte_mode_summary_o2" msgid="2467813449068614988">"ប្រើប្រាស់​សេវាកម្ម 4G ដើម្បីកែលម្អ​សំឡេង និង​ការ​ប្រាស្រ័យ​ទាក់ទង​ផ្សេងៗ (បានណែនាំ)"</string>
+    <!-- no translation found for enhanced_4g_lte_mode_sumary_variant:0 (2602242047481988063) -->
+    <!-- no translation found for enhanced_4g_lte_mode_sumary_variant:1 (989876442920201921) -->
+    <!-- no translation found for enhanced_4g_lte_mode_sumary_variant:2 (8852017734075358040) -->
     <string name="data_enabled" msgid="5972538663568715366">"បាន​បើក​ទិន្នន័យ"</string>
     <string name="data_enable_summary" msgid="2382798156640007971">"អនុញ្ញាត​​ឲ្យ​​ប្រើ​ប្រាស់​ទិន្នន័យ"</string>
     <string name="dialog_alert_title" msgid="6751344986194435476">"ប្រយ័ត្ន"</string>

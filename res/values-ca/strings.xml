@@ -29,7 +29,7 @@
     <string name="ussdRunning" msgid="485588686340541690">"S\'està executant el codi USSD..."</string>
     <string name="mmiCancelled" msgid="2771923949751842276">"Codi MMI cancel·lat"</string>
     <string name="cancel" msgid="5044513931633602634">"Cancel·la"</string>
-    <string name="enter_input" msgid="1810529547726803893">"El missatge USSD ha de contenir entre <xliff:g id="MIN_LEN">%d</xliff:g> i <xliff:g id="MAX_LEN">%d</xliff:g> caràcters. Torna-ho a provar."</string>
+    <string name="enter_input" msgid="1810529547726803893">"El missatge USSD ha de contenir entre <xliff:g id="MIN_LEN">%1$d</xliff:g> i <xliff:g id="MAX_LEN">%2$d</xliff:g> caràcters. Torna-ho a provar."</string>
     <string name="manageConferenceLabel" msgid="4691922394301969053">"Gestiona la trucada de conferència"</string>
     <string name="ok" msgid="3811371167865772377">"D\'acord"</string>
     <string name="audio_mode_speaker" msgid="27649582100085266">"Altaveu"</string>
@@ -238,6 +238,10 @@
     <string name="enhanced_4g_lte_mode_title" msgid="522191650223239171">"Mode 4G LTE millorat"</string>
     <!-- no translation found for enhanced_4g_lte_mode_title_variant:0 (4447454259719947406) -->
     <string name="enhanced_4g_lte_mode_summary" msgid="2332175070522125850">"Utilitza els serveis LTE per millorar la veu i la comunicació (opció recomanada)"</string>
+    <string name="enhanced_4g_lte_mode_summary_o2" msgid="2467813449068614988">"Utilitza els serveis 4G per millorar la veu i la comunicació (opció recomanada)"</string>
+    <!-- no translation found for enhanced_4g_lte_mode_sumary_variant:0 (2602242047481988063) -->
+    <!-- no translation found for enhanced_4g_lte_mode_sumary_variant:1 (989876442920201921) -->
+    <!-- no translation found for enhanced_4g_lte_mode_sumary_variant:2 (8852017734075358040) -->
     <string name="data_enabled" msgid="5972538663568715366">"Dades activades"</string>
     <string name="data_enable_summary" msgid="2382798156640007971">"Permet l\'ús de dades"</string>
     <string name="dialog_alert_title" msgid="6751344986194435476">"Atenció"</string>

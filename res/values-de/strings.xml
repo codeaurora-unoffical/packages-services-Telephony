@@ -29,7 +29,7 @@
     <string name="ussdRunning" msgid="485588686340541690">"USSD-Code wird ausgeführt..."</string>
     <string name="mmiCancelled" msgid="2771923949751842276">"MMI-Code abgebrochen"</string>
     <string name="cancel" msgid="5044513931633602634">"Abbrechen"</string>
-    <string name="enter_input" msgid="1810529547726803893">"Die USSD-Nachricht muss zwischen <xliff:g id="MIN_LEN">%d</xliff:g> und <xliff:g id="MAX_LEN">%d</xliff:g> Zeichen lang sein. Bitte versuche es noch einmal."</string>
+    <string name="enter_input" msgid="1810529547726803893">"Die USSD-Nachricht muss zwischen <xliff:g id="MIN_LEN">%1$d</xliff:g> und <xliff:g id="MAX_LEN">%2$d</xliff:g> Zeichen lang sein. Bitte versuche es noch einmal."</string>
     <string name="manageConferenceLabel" msgid="4691922394301969053">"Telefonkonferenz verwalten"</string>
     <string name="ok" msgid="3811371167865772377">"OK"</string>
     <string name="audio_mode_speaker" msgid="27649582100085266">"Lautsprecher"</string>
@@ -238,6 +238,10 @@
     <string name="enhanced_4g_lte_mode_title" msgid="522191650223239171">"Erweiterter 4G LTE-Modus"</string>
     <!-- no translation found for enhanced_4g_lte_mode_title_variant:0 (4447454259719947406) -->
     <string name="enhanced_4g_lte_mode_summary" msgid="2332175070522125850">"Zur Verbesserung von Sprache und Kommunikation LTE-Dienste verwenden (empfohlen)"</string>
+    <string name="enhanced_4g_lte_mode_summary_o2" msgid="2467813449068614988">"Zur Verbesserung von Sprache und Kommunikation 4G-Dienste verwenden (empfohlen)"</string>
+    <!-- no translation found for enhanced_4g_lte_mode_sumary_variant:0 (2602242047481988063) -->
+    <!-- no translation found for enhanced_4g_lte_mode_sumary_variant:1 (989876442920201921) -->
+    <!-- no translation found for enhanced_4g_lte_mode_sumary_variant:2 (8852017734075358040) -->
     <string name="data_enabled" msgid="5972538663568715366">"Daten aktiviert"</string>
     <string name="data_enable_summary" msgid="2382798156640007971">"Datennutzung zulassen"</string>
     <string name="dialog_alert_title" msgid="6751344986194435476">"Achtung"</string>
@@ -273,11 +277,9 @@
     <!-- String.format failed for translation -->
     <!-- no translation found for throttle_status_subtext (1657318943142085170) -->
     <skip />
-    <!-- String.format failed for translation -->
-    <!-- no translation found for throttle_data_usage_subtext (6029276011123694701) -->
-    <skip />
+    <string name="throttle_data_usage_subtext" msgid="6029276011123694701">"<xliff:g id="USED_0">%1$s</xliff:g> (<xliff:g id="USED_1">%2$d</xliff:g> ٪) des maximalen Zeitraums von <xliff:g id="USED_2">%3$s</xliff:g>"</string>
     <string name="throttle_data_rate_reduced_subtext" msgid="7492763592720107737">"Maximum von <xliff:g id="USED_0">%1$s</xliff:g> wurde überschritten.\nDatenrate wurde auf <xliff:g id="USED_1">%2$d</xliff:g> kbit/s reduziert."</string>
-    <string name="throttle_time_frame_subtext" msgid="7732763021560399960">"<xliff:g id="USED_0">%1$d</xliff:g> % des Zyklus sind verstrichen. \nDer nächste Zeitraum beginnt in <xliff:g id="USED_1">%2$d</xliff:g> Tagen (<xliff:g id="USED_2">%3$s</xliff:g>)."</string>
+    <string name="throttle_time_frame_subtext" msgid="7732763021560399960">"<xliff:g id="USED_0">%1$d</xliff:g> ٪ des Zyklus sind verstrichen. \nDer nächste Zeitraum beginnt in <xliff:g id="USED_1">%2$d</xliff:g> Tagen (<xliff:g id="USED_2">%3$s</xliff:g>)."</string>
     <string name="throttle_rate_subtext" msgid="2149102656120726855">"Datenrate wird auf <xliff:g id="USED">%1$d</xliff:g> kbit/s reduziert, wenn Datennutzungslimit überschritten wird."</string>
     <string name="throttle_help_subtext" msgid="5217706521499010816">"Weitere Informationen über die Richtlinien deines Mobilfunkanbieters zur Nutzung der Mobilfunknetzdaten"</string>
     <string name="cell_broadcast_sms" msgid="5584192824053625842">"Cell Broadcast SMS"</string>

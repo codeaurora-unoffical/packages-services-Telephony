@@ -29,7 +29,7 @@
     <string name="ussdRunning" msgid="485588686340541690">"ກຳລັງແລ່ນລະຫັດ USSD..."</string>
     <string name="mmiCancelled" msgid="2771923949751842276">"ຍົກເລີກລະຫັດ MMI ແລ້ວ"</string>
     <string name="cancel" msgid="5044513931633602634">"ຍົກເລີກ"</string>
-    <string name="enter_input" msgid="1810529547726803893">"ຂໍ້ຄວາມ USSD ຕ້ອງມີໂຕອັກສອນລະຫວ່າງ <xliff:g id="MIN_LEN">%d</xliff:g> ແລະ <xliff:g id="MAX_LEN">%d</xliff:g> ໂຕ. ກະລຸນາລອງໃໝ່ອີກຄັ້ງ."</string>
+    <string name="enter_input" msgid="1810529547726803893">"ຂໍ້ຄວາມ USSD ຕ້ອງມີໂຕອັກສອນລະຫວ່າງ <xliff:g id="MIN_LEN">%1$d</xliff:g> ແລະ <xliff:g id="MAX_LEN">%2$d</xliff:g> ໂຕ. ກະລຸນາລອງໃໝ່ອີກຄັ້ງ."</string>
     <string name="manageConferenceLabel" msgid="4691922394301969053">"ຈັດການການປະຊຸມສາຍ"</string>
     <string name="ok" msgid="3811371167865772377">"ຕົກລົງ"</string>
     <string name="audio_mode_speaker" msgid="27649582100085266">"ລຳໂພງ"</string>
@@ -238,6 +238,10 @@
     <string name="enhanced_4g_lte_mode_title" msgid="522191650223239171">"ໂໝດ Enhanced 4G LTE"</string>
     <!-- no translation found for enhanced_4g_lte_mode_title_variant:0 (4447454259719947406) -->
     <string name="enhanced_4g_lte_mode_summary" msgid="2332175070522125850">"ໃຊ້​ການ​ບໍ​ລິ​ການ LTE ເພື່ອ​ປັບ​ປຸງ​ສຽງ ແລະ​ການ​ບໍ​ລິ​ການ​ອື່ນໆ (ແນະ​ນຳ)"</string>
+    <string name="enhanced_4g_lte_mode_summary_o2" msgid="2467813449068614988">"ໃຊ້​ການ​ບໍ​ລິ​ການ 4G ເພື່ອ​ປັບ​ປຸງ​ສຽງ ແລະ​ ການ​ສື່ສານອື່ນໆ (ແນະ​ນຳ)"</string>
+    <!-- no translation found for enhanced_4g_lte_mode_sumary_variant:0 (2602242047481988063) -->
+    <!-- no translation found for enhanced_4g_lte_mode_sumary_variant:1 (989876442920201921) -->
+    <!-- no translation found for enhanced_4g_lte_mode_sumary_variant:2 (8852017734075358040) -->
     <string name="data_enabled" msgid="5972538663568715366">"ເປີດໃຊ້ເດຕາ"</string>
     <string name="data_enable_summary" msgid="2382798156640007971">"​ອະ​ນຸ​ຍາດ​ໃຫ້​ໃຊ້​ຂໍ້​ມູນ"</string>
     <string name="dialog_alert_title" msgid="6751344986194435476">"ກະລຸນາຮັບຊາບ"</string>

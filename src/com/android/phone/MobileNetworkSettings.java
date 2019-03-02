@@ -48,6 +48,7 @@ import android.preference.PreferenceFragment;
 import android.preference.PreferenceScreen;
 import android.preference.SwitchPreference;
 import android.provider.Settings;
+import android.sysprop.SetupWizardProperties;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
 import android.telephony.CarrierConfigManager;
@@ -97,8 +98,6 @@ public class MobileNetworkSettings extends Activity  {
 
     // CID of the device.
     private static final String KEY_CID = "ro.boot.cid";
-    // CIDs of devices which should not show anything related to eSIM.
-    private static final String KEY_ESIM_CID_IGNORE = "ro.setupwizard.esim_cid_ignore";
     // System Property which is used to decide whether the default eSIM UI will be shown,
     // the default value is false.
     private static final String KEY_ENABLE_ESIM_UI_BY_DEFAULT =
@@ -218,7 +217,7 @@ public class MobileNetworkSettings extends Activity  {
             }
         }
         final boolean esimIgnoredDevice =
-                Arrays.asList(TextUtils.split(SystemProperties.get(KEY_ESIM_CID_IGNORE, ""), ","))
+                SetupWizardProperties.esim_cid_ignore()
                         .contains(SystemProperties.get(KEY_CID, null));
         final boolean enabledEsimUiByDefault =
                 SystemProperties.getBoolean(KEY_ENABLE_ESIM_UI_BY_DEFAULT, true);
@@ -485,7 +484,7 @@ public class MobileNetworkSettings extends Activity  {
 
         public void onIntentUpdate(Intent intent) {
             if (!mUnavailable) {
-                updateCurrentTab(intent);
+                updateCurrentTab(intent.getExtras());
             }
         }
 
@@ -583,8 +582,7 @@ public class MobileNetworkSettings extends Activity  {
             }
         };
 
-        private int getSlotIdFromIntent(Intent intent) {
-            Bundle data = intent.getExtras();
+        private int getSlotIdFromBundle(Bundle data) {
             int subId = -1;
             if (data != null) {
                 subId = data.getInt(Settings.EXTRA_SUB_ID, -1);
@@ -754,8 +752,8 @@ public class MobileNetworkSettings extends Activity  {
                     mEmptyTabContent);
         }
 
-        private void updateCurrentTab(Intent intent) {
-            int slotId = getSlotIdFromIntent(intent);
+        private void updateCurrentTab(Bundle data) {
+            int slotId = getSlotIdFromBundle(data);
             if (slotId >= 0 && mTabHost != null && mTabHost.getCurrentTab() != slotId) {
                 mTabHost.setCurrentTab(slotId);
             }
@@ -768,6 +766,9 @@ public class MobileNetworkSettings extends Activity  {
             // If advanced fields are already expanded, we save it and expand it
             // when it's re-created.
             outState.putBoolean(EXPAND_ADVANCED_FIELDS, mExpandAdvancedFields);
+
+            // Save subId of currently shown tab.
+            outState.putInt(Settings.EXTRA_SUB_ID, mSubId);
         }
 
         @Override
@@ -851,7 +852,12 @@ public class MobileNetworkSettings extends Activity  {
                 getActivity().setContentView(R.layout.telephony_disallowed_preference_screen);
             } else {
                 initializeSubscriptions();
-                updateCurrentTab(getActivity().getIntent());
+
+                if (savedInstanceState != null) {
+                    updateCurrentTab(savedInstanceState);
+                } else {
+                    updateCurrentTab(getActivity().getIntent().getExtras());
+                }
             }
         }
 

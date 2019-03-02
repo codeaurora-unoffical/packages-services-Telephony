@@ -29,7 +29,7 @@
     <string name="ussdRunning" msgid="485588686340541690">"Ikhodi ye-USSD iyasebenza..."</string>
     <string name="mmiCancelled" msgid="2771923949751842276">"Ikhodi ye-MMI ikhanseliwe"</string>
     <string name="cancel" msgid="5044513931633602634">"Khansela"</string>
-    <string name="enter_input" msgid="1810529547726803893">"Umlayezo we-USSD kuzomele ube phakathi kuka-<xliff:g id="MIN_LEN">%d</xliff:g> nezinhlamvu ezingu-<xliff:g id="MAX_LEN">%d</xliff:g>. Sicela uzame futhi."</string>
+    <string name="enter_input" msgid="1810529547726803893">"Umlayezo we-USSD kuzomele ube phakathi kuka-<xliff:g id="MIN_LEN">%1$d</xliff:g> nezinhlamvu ezingu-<xliff:g id="MAX_LEN">%2$d</xliff:g>. Sicela uzame futhi."</string>
     <string name="manageConferenceLabel" msgid="4691922394301969053">"Phatha ucingo lwengqungquthela"</string>
     <string name="ok" msgid="3811371167865772377">"KULUNGILE"</string>
     <string name="audio_mode_speaker" msgid="27649582100085266">"Isipikha"</string>
@@ -238,6 +238,10 @@
     <string name="enhanced_4g_lte_mode_title" msgid="522191650223239171">"Imodi ye-4G LTE ethuthukisiwe"</string>
     <!-- no translation found for enhanced_4g_lte_mode_title_variant:0 (4447454259719947406) -->
     <string name="enhanced_4g_lte_mode_summary" msgid="2332175070522125850">"Sebenzisa amasevisi we-LTE ukuze uthuthukise izwi nokunye ukuxhumana (kunconyiwe)"</string>
+    <string name="enhanced_4g_lte_mode_summary_o2" msgid="2467813449068614988">"Sebenzisa amasevisi we-G4 ukuze uthuthukise izwi nokunye ukuxhumana (kunconyiwe)"</string>
+    <!-- no translation found for enhanced_4g_lte_mode_sumary_variant:0 (2602242047481988063) -->
+    <!-- no translation found for enhanced_4g_lte_mode_sumary_variant:1 (989876442920201921) -->
+    <!-- no translation found for enhanced_4g_lte_mode_sumary_variant:2 (8852017734075358040) -->
     <string name="data_enabled" msgid="5972538663568715366">"Idatha ivunyelwe"</string>
     <string name="data_enable_summary" msgid="2382798156640007971">"Vumela ukusetshenziswa kwedatha"</string>
     <string name="dialog_alert_title" msgid="6751344986194435476">"Qaphela"</string>
@@ -275,9 +279,7 @@
     <skip />
     <string name="throttle_data_usage_subtext" msgid="6029276011123694701">"<xliff:g id="USED_0">%1$s</xliff:g> (<xliff:g id="USED_1">%2$d</xliff:g>٪) ye- <xliff:g id="USED_2">%3$s</xliff:g> isikhathi esiphezulu"</string>
     <string name="throttle_data_rate_reduced_subtext" msgid="7492763592720107737">"<xliff:g id="USED_0">%1$s</xliff:g>okuphezulu kufinyelelwe\nIsilinganiso sedatha sehliselwe ku- <xliff:g id="USED_1">%2$d</xliff:g> ama-Kb"</string>
-    <!-- String.format failed for translation -->
-    <!-- no translation found for throttle_time_frame_subtext (7732763021560399960) -->
-    <skip />
+    <string name="throttle_time_frame_subtext" msgid="7732763021560399960">"<xliff:g id="USED_0">%1$d</xliff:g>٪ lesikhathi esiphelile\nIsikhathi esilandelayo siqala ezinsukwini <xliff:g id="USED_1">%2$d</xliff:g> ezingu <xliff:g id="USED_2">%3$s</xliff:g>)"</string>
     <string name="throttle_rate_subtext" msgid="2149102656120726855">"Isilinganiso sedatha sehliselwe ku-<xliff:g id="USED">%1$d</xliff:g> ama-Kb uma ukusebenzisa umkhawulo wedatha ufinyelelwe"</string>
     <string name="throttle_help_subtext" msgid="5217706521499010816">"Olunye ulwazi mayelana nenqubomgomo yokusebenzisa idatha yenethiwekhi yesiphathi sakho sefoni."</string>
     <string name="cell_broadcast_sms" msgid="5584192824053625842">"I-SMS Yokusakaza Iseli"</string>

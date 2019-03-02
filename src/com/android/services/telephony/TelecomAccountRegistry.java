@@ -49,6 +49,10 @@ import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
 import android.telephony.SubscriptionManager.OnSubscriptionsChangedListener;
 import android.telephony.TelephonyManager;
+import android.telephony.ims.ImsException;
+import android.telephony.ims.ImsMmTelManager;
+import android.telephony.ims.feature.MmTelFeature;
+import android.telephony.ims.stub.ImsRegistrationImplBase;
 import android.text.TextUtils;
 
 import com.android.ims.ImsManager;
@@ -72,7 +76,7 @@ import org.codeaurora.internal.IExtTelephony;
  * Owns all data we have registered with Telecom including handling dynamic addition and
  * removal of SIMs and SIP accounts.
  */
-public final class TelecomAccountRegistry {
+public class TelecomAccountRegistry {
     private static final boolean DBG = false; /* STOP SHIP if true */
 
     // This icon is the one that is used when the Slot ID that we have for a particular SIM
@@ -95,7 +99,11 @@ public final class TelecomAccountRegistry {
         private final PstnIncomingCallNotifier mIncomingCallNotifier;
         private final PstnPhoneCapabilitiesNotifier mPhoneCapabilitiesNotifier;
         private boolean mIsEmergency;
-        private boolean mIsDummy;
+        private boolean mIsRttCapable;
+        private MmTelFeature.MmTelCapabilities mMmTelCapabilities;
+        private ImsMmTelManager.CapabilityCallback mMmtelCapabilityCallback;
+        private ImsMmTelManager mMmTelManager;
+        private final boolean mIsDummy;
         private boolean mIsVideoCapable;
         private boolean mIsVideoPresenceSupported;
         private boolean mIsVideoPauseSupported;
@@ -116,11 +124,56 @@ public final class TelecomAccountRegistry {
             mIncomingCallNotifier = new PstnIncomingCallNotifier((Phone) mPhone);
             mPhoneCapabilitiesNotifier = new PstnPhoneCapabilitiesNotifier((Phone) mPhone,
                     this);
+
+            if (mIsDummy || isEmergency) {
+                // For dummy and emergency entries, there is no sub ID that can be assigned, so do
+                // not register for capabilities callbacks.
+                return;
+            }
+
+            try {
+                mMmTelManager = ImsMmTelManager.createForSubscriptionId(getSubId());
+            } catch (IllegalArgumentException e) {
+                Log.i(this, "Not registering MmTel capabilities listener because the subid '"
+                        + getSubId() + "' is invalid: " + e.getMessage());
+                return;
+            }
+
+            mMmtelCapabilityCallback = new ImsMmTelManager.CapabilityCallback() {
+                @Override
+                public void onCapabilitiesStatusChanged(
+                        MmTelFeature.MmTelCapabilities capabilities) {
+                    mMmTelCapabilities = capabilities;
+                    updateRttCapability();
+                }
+            };
+
+            registerMmTelCapabilityCallback();
         }
 
         void teardown() {
             mIncomingCallNotifier.teardown();
             mPhoneCapabilitiesNotifier.teardown();
+            if (mMmTelManager != null && mMmtelCapabilityCallback != null) {
+                mMmTelManager.unregisterMmTelCapabilityCallback(mMmtelCapabilityCallback);
+            }
+        }
+
+        private void registerMmTelCapabilityCallback() {
+            if (mMmTelManager == null || mMmtelCapabilityCallback == null) {
+                // The subscription id associated with this account is invalid or not associated
+                // with a subscription. Do not register in this case.
+                return;
+            }
+
+            try {
+                mMmTelManager.registerMmTelCapabilityCallback(mContext.getMainExecutor(),
+                        mMmtelCapabilityCallback);
+            } catch (ImsException e) {
+                Log.w(this, "registerMmTelCapabilityCallback: registration failed, no ImsService"
+                        + " available. Exception: " + e.getMessage());
+                return;
+            }
         }
 
         /**
@@ -277,8 +330,12 @@ public final class TelecomAccountRegistry {
                 extras.putBoolean(PhoneAccount.EXTRA_PLAY_CALL_RECORDING_TONE, true);
             }
 
-            if (PhoneGlobals.getInstance().phoneMgr.isRttEnabled(subId)) {
+            if (PhoneGlobals.getInstance().phoneMgr.isRttEnabled(subId)
+                    && isImsVoiceAvailable()) {
                 capabilities |= PhoneAccount.CAPABILITY_RTT;
+                mIsRttCapable = true;
+            } else {
+                mIsRttCapable = false;
             }
 
             extras.putBoolean(PhoneAccount.EXTRA_SUPPORTS_VIDEO_CALLING_FALLBACK,
@@ -542,10 +599,14 @@ public final class TelecomAccountRegistry {
         }
 
         public void updateRttCapability() {
-            boolean isRttEnabled = PhoneGlobals.getInstance().phoneMgr
+            boolean hasVoiceAvailability = isImsVoiceAvailable();
+
+            boolean isRttSupported = PhoneGlobals.getInstance().phoneMgr
                     .isRttEnabled(mPhone.getSubId());
-            boolean oldRttEnabled = mAccount.hasCapabilities(PhoneAccount.CAPABILITY_RTT);
-            if (isRttEnabled != oldRttEnabled) {
+
+            boolean isRttEnabled = hasVoiceAvailability && isRttSupported;
+            if (isRttEnabled != mIsRttCapable) {
+                Log.i(this, "updateRttCapability - changed, new value: " + isRttEnabled);
                 mAccount = registerPstnPhoneAccount(mIsEmergency, mIsDummy);
             }
         }
@@ -607,6 +668,26 @@ public final class TelecomAccountRegistry {
          */
         public boolean isShowPreciseFailedCause() {
             return mIsShowPreciseFailedCause;
+        }
+
+        private boolean isImsVoiceAvailable() {
+            if (mMmTelCapabilities != null) {
+                return mMmTelCapabilities.isCapable(
+                        MmTelFeature.MmTelCapabilities.CAPABILITY_TYPE_VOICE);
+            }
+
+            if (mMmTelManager == null) {
+                // The Subscription is invalid, so IMS is unavailable.
+                return false;
+            }
+
+            // In the rare case that mMmTelCapabilities hasn't been set, try fetching it
+            // directly and register callback.
+            registerMmTelCapabilityCallback();
+            return mMmTelManager.isAvailable(ImsRegistrationImplBase.REGISTRATION_TECH_LTE,
+                    MmTelFeature.MmTelCapabilities.CAPABILITY_TYPE_VOICE)
+                    || mMmTelManager.isAvailable(ImsRegistrationImplBase.REGISTRATION_TECH_IWLAN,
+                    MmTelFeature.MmTelCapabilities.CAPABILITY_TYPE_VOICE);
         }
     }
 

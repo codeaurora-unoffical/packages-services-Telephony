@@ -29,7 +29,7 @@
     <string name="ussdRunning" msgid="485588686340541690">"USSD ကုဒ် လုပ်ဆောင်နေပါသည်…"</string>
     <string name="mmiCancelled" msgid="2771923949751842276">"MMIကုတ်နံပါတ်ကို ပယ်ဖျက်ပြီးပါပြီ"</string>
     <string name="cancel" msgid="5044513931633602634">"မလုပ်တော့"</string>
-    <string name="enter_input" msgid="1810529547726803893">"USSD စာများဟာ စာလုံးရေ <xliff:g id="MIN_LEN">%d</xliff:g> မှ<xliff:g id="MAX_LEN">%d</xliff:g> အတွင်း ဖြစ်ရပါမည်။ နောက်တစ်ခေါက်ကြိုးစားပါ"</string>
+    <string name="enter_input" msgid="1810529547726803893">"USSD စာများဟာ စာလုံးရေ <xliff:g id="MIN_LEN">%1$d</xliff:g> မှ<xliff:g id="MAX_LEN">%2$d</xliff:g> အတွင်း ဖြစ်ရပါမည်။ နောက်တစ်ခေါက်ကြိုးစားပါ"</string>
     <string name="manageConferenceLabel" msgid="4691922394301969053">"ကွန်းဖရင့် ခေါ်ဆိုမှုကို ထိန်းချုပ်သည်"</string>
     <string name="ok" msgid="3811371167865772377">"OK"</string>
     <string name="audio_mode_speaker" msgid="27649582100085266">"စပီကာ"</string>
@@ -238,6 +238,10 @@
     <string name="enhanced_4g_lte_mode_title" msgid="522191650223239171">"မြှင့်တင်ထား 4G LTE မုဒ်"</string>
     <!-- no translation found for enhanced_4g_lte_mode_title_variant:0 (4447454259719947406) -->
     <string name="enhanced_4g_lte_mode_summary" msgid="2332175070522125850">"အသံခေါ်ဆိုမှုနှင့် အခြားဆက်သွယ်ရေးများ တိုးတက်စေရန် LTE ဝန်ဆောင်မှုများ ကိုအသုံးပြုမည် (အကြံပြုထား)"</string>
+    <string name="enhanced_4g_lte_mode_summary_o2" msgid="2467813449068614988">"အသံခေါ်ဆိုမှုနှင့် အခြားဆက်သွယ်ရေးများ ပိုမိုကောင်းမွန်စေရန် 4G ဝန်ဆောင်မှုများ အသုံးပြုပါ (အကြံပြုထားသည်)"</string>
+    <!-- no translation found for enhanced_4g_lte_mode_sumary_variant:0 (2602242047481988063) -->
+    <!-- no translation found for enhanced_4g_lte_mode_sumary_variant:1 (989876442920201921) -->
+    <!-- no translation found for enhanced_4g_lte_mode_sumary_variant:2 (8852017734075358040) -->
     <string name="data_enabled" msgid="5972538663568715366">"ဒေတာ ဖွင့်ထားပြီး"</string>
     <string name="data_enable_summary" msgid="2382798156640007971">"ဒေတာ သုံးစွဲမှု ခွင့်ပြုရန်"</string>
     <string name="dialog_alert_title" msgid="6751344986194435476">"သတိပြုရန်"</string>
