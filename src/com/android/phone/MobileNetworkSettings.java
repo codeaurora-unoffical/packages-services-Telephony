@@ -345,6 +345,7 @@ public class MobileNetworkSettings extends Activity  {
                 updateEnhanced4gLteState();
                 updateWiFiCallState();
                 updateVideoCallState();
+                updatePreferredNetworkType();
             }
 
             /*
@@ -1128,6 +1129,7 @@ public class MobileNetworkSettings extends Activity  {
             }
 
             updateEnhanced4gLteState();
+            updatePreferredNetworkType();
             updateCallingCategory();
 
             // Enable link to CMAS app settings depending on the value in config.xml.
@@ -1173,15 +1175,23 @@ public class MobileNetworkSettings extends Activity  {
              * but you do need to remember that this all needs to work when subscriptions
              * change dynamically such as when hot swapping sims.
              */
-            boolean useVariant4glteTitle = carrierConfig.getBoolean(
-                    CarrierConfigManager.KEY_ENHANCED_4G_LTE_TITLE_VARIANT_BOOL);
-            int enhanced4glteModeTitleId = useVariant4glteTitle ?
-                    R.string.enhanced_4g_lte_mode_title_variant :
-                    R.string.enhanced_4g_lte_mode_title;
-
-            mButtonPreferredNetworkMode.setEnabled(hasActiveSubscriptions);
-            mButtonEnabledNetworks.setEnabled(hasActiveSubscriptions);
-            mButton4glte.setTitle(enhanced4glteModeTitleId);
+            int variant4glteTitleIndex = carrierConfig.getInt(
+                    CarrierConfigManager.KEY_ENHANCED_4G_LTE_TITLE_VARIANT_INT);
+            String[] variantTitles = getContext().getResources()
+                    .getStringArray(R.array.enhanced_4g_lte_mode_title_variant);
+            // Default index 0 indicates the default title string
+            CharSequence enhanced4glteModeTitle = variantTitles[0];
+            CharSequence enhanced4glteModeSummary = getContext().getResources()
+                    .getString(R.string.enhanced_4g_lte_mode_summary);
+            if (variant4glteTitleIndex >= 0 && variant4glteTitleIndex < variantTitles.length) {
+                enhanced4glteModeTitle = variantTitles[variant4glteTitleIndex];
+                // Workaround for b/119068616, O2 persists to replace LTE with 4G or hide it.
+                if (variant4glteTitleIndex == 2) {
+                    enhanced4glteModeSummary = null;
+                }
+            }
+            mButton4glte.setTitle(enhanced4glteModeTitle);
+            mButton4glte.setSummary(enhanced4glteModeSummary);
             mLteDataServicePref.setEnabled(hasActiveSubscriptions);
             Preference ps;
             ps = findPreference(BUTTON_CELL_BROADCAST_SETTINGS);
@@ -1698,7 +1708,12 @@ public class MobileNetworkSettings extends Activity  {
                     } else {
                         if (isWorldMode()) {
                             controlCdmaOptions(true);
-                            controlGsmOptions(false);
+                            if (showNetworkOptionByPhoneType()
+                                    && mPhone.getPhoneType() == PhoneConstants.PHONE_TYPE_GSM) {
+                                controlGsmOptions(true);
+                            } else {
+                                controlGsmOptions(false);
+                            }
                         }
                         mButtonEnabledNetworks.setValue(
                                 Integer.toString(Phone.NT_MODE_LTE_CDMA_EVDO_GSM_WCDMA));
@@ -1858,6 +1873,22 @@ public class MobileNetworkSettings extends Activity  {
             }
         }
 
+        private void updatePreferredNetworkType() {
+            boolean enabled = mTelephonyManager.getCallState(
+                    mPhone.getSubId()) == TelephonyManager.CALL_STATE_IDLE
+                    && hasActiveSubscriptions();
+            Log.i(LOG_TAG, "updatePreferredNetworkType: " + enabled);
+            // TODO: Disentangle enabled networks vs preferred network mode, it looks like
+            // both buttons are shown to the user as "Preferred network type" and the options change
+            // based on what looks like World mode.
+            if (mButtonEnabledNetworks != null) {
+                mButtonEnabledNetworks.setEnabled(enabled);
+            }
+            if (mButtonPreferredNetworkMode != null) {
+                mButtonPreferredNetworkMode.setEnabled(enabled);
+            }
+        }
+
         private void updateCallingCategory() {
             if (mCallingCategory == null) {
                 return;
@@ -1905,20 +1936,59 @@ public class MobileNetworkSettings extends Activity  {
             return super.onOptionsItemSelected(item);
         }
 
-        private boolean isWorldMode() {
-            boolean worldModeOn = false;
-            final String configString = getResources().getString(R.string.config_world_mode);
+        private boolean showNetworkOptionByPhoneType() {
+            boolean showByPhoneType = false;
+            final String configString = getResources().getString(
+                    R.string.config_show_gsm_option);
 
             if (!TextUtils.isEmpty(configString)) {
                 String[] configArray = configString.split(";");
-                // Check if we have World mode configuration set to True only or config is set to True
-                // and SIM GID value is also set and matches to the current SIM GID.
+                // Check if we have showNetworkOptionByPhoneType configuration set to True only
+                // or config is set to True and SIM SPN value is also set and matches to the
+                // current SIM SPN.
+                if (configArray != null && (
+                        (configArray.length == 1 && configArray[0].equalsIgnoreCase("true"))
+                                || (configArray.length == 2 && !TextUtils.isEmpty(configArray[1])
+                                && mTelephonyManager != null
+                                && configArray[1].equalsIgnoreCase(
+                                mTelephonyManager.getSimOperatorName())))) {
+                    showByPhoneType = true;
+                }
+            }
+            Log.d(LOG_TAG, "showNetworkOptionByPhoneType=" + showByPhoneType);
+
+            return showByPhoneType;
+        }
+
+        private boolean isWorldMode() {
+            boolean worldModeOn = false;
+            final String configString = getResources().getString(R.string.config_world_mode);
+            final String configStringSpn = getResources().getString(R.string.config_world_mode_spn);
+
+            if (!TextUtils.isEmpty(configString)) {
+                String[] configArray = configString.split(";");
+                // Check if we have World mode configuration set to True only or config is set to
+                // True and SIM GID value is also set and matches to the current SIM GID.
                 if (configArray != null &&
                         ((configArray.length == 1 && configArray[0].equalsIgnoreCase("true"))
                                 || (configArray.length == 2 && !TextUtils.isEmpty(configArray[1])
                                 && mTelephonyManager != null
                                 && configArray[1].equalsIgnoreCase(
-                                        mTelephonyManager.getGroupIdLevel1())))) {
+                                mTelephonyManager.getGroupIdLevel1())))) {
+                    worldModeOn = true;
+                }
+            }
+            if (!worldModeOn && !TextUtils.isEmpty(configStringSpn)) {
+                String[] configArray = configStringSpn.split(";");
+                // Check if we have World mode configuration set to True only or config is set to
+                // True and SIM SPN value is also set and matches to the current SIM SPN.
+                if (configArray != null
+                        && configArray.length == 2 && !TextUtils.isEmpty(configArray[0])
+                        && !TextUtils.isEmpty(configArray[1])
+                        && configArray[0].equalsIgnoreCase("true")
+                        && mTelephonyManager != null
+                        && configArray[1].equalsIgnoreCase(
+                        mTelephonyManager.getSimOperatorName())) {
                     worldModeOn = true;
                 }
             }

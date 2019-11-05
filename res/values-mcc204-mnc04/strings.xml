@@ -16,4 +16,6 @@
 
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string translatable="false" name="config_world_mode">true;BAE0000000000000</string>
+    <string translatable="false" name="config_world_mode_spn">true;U.S. CELLULAR</string>
+    <string translatable="false" name="config_show_gsm_option">true;U.S. CELLULAR</string>
 </resources>
