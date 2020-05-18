@@ -71,6 +71,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.List;
@@ -247,12 +248,20 @@ public class TelephonyConnectionService extends ConnectionService {
 
         @Override
         public boolean isCurrentEmergencyNumber(String number) {
-            return mTelephonyManager.isEmergencyNumber(number);
+            try {
+                return mTelephonyManager.isEmergencyNumber(number);
+            } catch (IllegalStateException ise) {
+                return false;
+            }
         }
 
         @Override
         public Map<Integer, List<EmergencyNumber>> getCurrentEmergencyNumberList() {
-            return mTelephonyManager.getEmergencyNumberList();
+            try {
+                return mTelephonyManager.getEmergencyNumberList();
+            } catch (IllegalStateException ise) {
+                return new HashMap<>();
+            }
         }
     }
 
@@ -583,9 +592,11 @@ public class TelephonyConnectionService extends ConnectionService {
         }
 
         TelephonyConnection connection = (TelephonyConnection)conn;
+
         ImsConference conference = new ImsConference(TelecomAccountRegistry.getInstance(this),
                 mTelephonyConnectionServiceProxy, connection,
-                phoneAccountHandle, () -> true);
+                phoneAccountHandle, () -> true,
+                ImsConferenceController.getCarrierConfig(connection.getPhone()));
         mImsConferenceController.addConference(conference);
         conference.setVideoState(connection,
                 connection.getVideoState());
@@ -1658,7 +1669,10 @@ public class TelephonyConnectionService extends ConnectionService {
 
     private void placeOutgoingConnection(
             TelephonyConnection connection, Phone phone, int videoState, Bundle extras) {
-        String number = connection.getAddress().getSchemeSpecificPart();
+
+        String number = (connection.getAddress() != null)
+                ? connection.getAddress().getSchemeSpecificPart()
+                : "";
 
         updatePhoneAccount(connection, phone);
 
