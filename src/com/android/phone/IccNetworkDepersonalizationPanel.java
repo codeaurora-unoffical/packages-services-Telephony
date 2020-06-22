@@ -40,7 +40,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import com.android.internal.telephony.Phone;
-import com.android.internal.telephony.uicc.IccCardApplicationStatus;
+import com.android.internal.telephony.RIL;
 import com.android.internal.telephony.uicc.IccCardApplicationStatus.PersoSubState;
 
 import org.codeaurora.internal.IExtTelephony;
@@ -60,7 +60,7 @@ public class IccNetworkDepersonalizationPanel extends IccPanel {
      * Ensures only a single instance of the dialog is visible.
      */
     private static boolean [] sShowingDialog =
-            new boolean[TelephonyManager.getDefault().getSimCount()];
+            new boolean[TelephonyManager.getDefault().getSupportedModemCount()];
 
     //debug constants
     private static final boolean DBG = false;
@@ -68,11 +68,13 @@ public class IccNetworkDepersonalizationPanel extends IccPanel {
     //events
     private static final int EVENT_ICC_NTWRK_DEPERSONALIZATION_RESULT = 100;
 
+    //this enum value should match with error value being propagated from vendor
+    private int ERROR = 1;
     private Phone mPhone;
     private int mPersoSubtype;
-    private int ERROR = 1;
     private static IccNetworkDepersonalizationPanel [] sNdpPanel =
-            new IccNetworkDepersonalizationPanel[TelephonyManager.getDefault().getSimCount()];
+            new IccNetworkDepersonalizationPanel[
+                    TelephonyManager.getDefault().getSupportedModemCount()];
 
     //UI elements
     private EditText     mPinEntry;
@@ -93,13 +95,17 @@ public class IccNetworkDepersonalizationPanel extends IccPanel {
     }
 
     private IExtTelephony mExtTelephony = IExtTelephony.Stub.
-            asInterface(ServiceManager.getService("extphone"));
+            asInterface(ServiceManager.getService("qti.radio.extphone"));
 
     /**
      * Shows the network depersonalization dialog, but only if it is not already visible.
      */
     public static void showDialog(Phone phone, int subType) {
         int phoneId = phone == null ? 0: phone.getPhoneId();
+        if (phoneId >= sShowingDialog.length) {
+            Log.e(TAG, "[IccNetworkDepersonalizationPanel] showDialog; invalid phoneId" + phoneId);
+            return;
+        }
         if (sShowingDialog[phoneId]) {
             Log.i(TAG, "[IccNetworkDepersonalizationPanel] - showDialog; skipped already shown.");
             return;
@@ -112,6 +118,10 @@ public class IccNetworkDepersonalizationPanel extends IccPanel {
     }
 
     public static void dialogDismiss(int phoneId) {
+        if (phoneId >= sShowingDialog.length) {
+            Log.e(TAG, "[IccNetworkDepersonalizationPanel] - dismiss; invalid phoneId " + phoneId);
+            return;
+        }
         if (sNdpPanel[phoneId] != null && sShowingDialog[phoneId]) {
             sNdpPanel[phoneId].dismiss();
         }
@@ -137,24 +147,48 @@ public class IccNetworkDepersonalizationPanel extends IccPanel {
     private Handler mHandler = new Handler() {
         public void handleMessage(Message msg) {
             if (msg.what == EVENT_ICC_NTWRK_DEPERSONALIZATION_RESULT) {
-                if (msg.arg1 == ERROR) {
-                    if (DBG) log("network depersonalization request failure.");
-                    displayStatus(statusType.ERROR.name());
-                    postDelayed(new Runnable() {
-                        public void run() {
-                            hideAlert();
-                            mPinEntry.getText().clear();
-                            mPinEntry.requestFocus();
+                if (mPhone.getHalVersion().greaterOrEqual(RIL.RADIO_HAL_VERSION_1_5)) {
+                    AsyncResult res = (AsyncResult) msg.obj;
+                        if (res.exception != null) {
+                            if (DBG) log("network depersonalization request failure.");
+                            displayStatus(statusType.ERROR.name());
+                            postDelayed(new Runnable() {
+                                public void run() {
+                                    hideAlert();
+                                    mPinEntry.getText().clear();
+                                    mPinEntry.requestFocus();
+                                }
+                            }, 3000);
+                        } else {
+                            if (DBG) log("network depersonalization success.");
+                            displayStatus(statusType.SUCCESS.name());
+                            postDelayed(new Runnable() {
+                                public void run() {
+                                    dismiss();
+                                }
+                            }, 3000);
                         }
-                    }, 3000);
                 } else {
-                    if (DBG) log("network depersonalization success.");
-                    displayStatus(statusType.SUCCESS.name());
-                    postDelayed(new Runnable() {
-                        public void run() {
-                            dismiss();
-                        }
-                    }, 3000);
+                    //DepersoResult received ERROR/SUCCESS from vendor side
+                    if (msg.arg1 == ERROR) {
+                        if (DBG) log("network depersonalization request failure.");
+                        displayStatus(statusType.ERROR.name());
+                        postDelayed(new Runnable() {
+                            public void run() {
+                                hideAlert();
+                                mPinEntry.getText().clear();
+                                mPinEntry.requestFocus();
+                            }
+                        }, 3000);
+                    } else {
+                        if (DBG) log("network depersonalization success.");
+                        displayStatus(statusType.SUCCESS.name());
+                        postDelayed(new Runnable() {
+                            public void run() {
+                                dismiss();
+                            }
+                        }, 3000);
+                    }
                 }
             }
         }
@@ -235,6 +269,10 @@ public class IccNetworkDepersonalizationPanel extends IccPanel {
         super.onStop();
         Log.i(TAG, "[IccNetworkDepersonalizationPanel] - showDialog; hiding dialog.");
         int phoneId = mPhone == null ? 0 : mPhone.getPhoneId();
+        if (phoneId >= sShowingDialog.length) {
+            Log.e(TAG, "[IccNetworkDepersonalizationPanel] - onStop; invalid phoneId " + phoneId);
+            return;
+        }
         sShowingDialog[phoneId] = false;
     }
 
@@ -260,8 +298,15 @@ public class IccNetworkDepersonalizationPanel extends IccPanel {
                     + " subtype val " + persoState);
 
             try {
-                mExtTelephony.supplyIccDepersonalization(pin, Integer.toString(persoState),
-                        mCallback, mPhone.getPhoneId());
+                // If 1.5 or above HAL Version, then functionality uses IRadio.hal
+                // else follow legacy procedure
+                if(mPhone.getHalVersion().greaterOrEqual(RIL.RADIO_HAL_VERSION_1_5)) {
+                    mPhone.getIccCard().supplySimDepersonalization(mPersoSubState,pin,
+                           Message.obtain(mHandler, EVENT_ICC_NTWRK_DEPERSONALIZATION_RESULT));
+                } else {
+                    mExtTelephony.supplyIccDepersonalization(pin, Integer.toString(persoState),
+                             mCallback, mPhone.getPhoneId());
+                }
             } catch (RemoteException ex) {
                 log("RemoteException @supplyIccDepersonalization" + ex);
             } catch (NullPointerException ex) {

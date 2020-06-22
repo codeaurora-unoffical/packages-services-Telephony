@@ -1011,6 +1011,8 @@
     <string name="tty_mode_option_summary">Set TTY mode</string>
     <string name="auto_retry_mode_title">Auto-retry</string>
     <string name="auto_retry_mode_summary">Enable Auto-retry mode</string>
+    <string name="vibrating_for_outgoing_call_accepted_title">Vibrating for outgoing call accepted</string>
+    <string name="vibrating_for_outgoing_call_accepted_summary">Enable vibrating mode for outgoing call accepted</string>
     <!-- TTY Mode change is NOT allowed during a video call -->
     <string name="tty_mode_not_allowed_video_call">TTY Mode change is not allowed during a video call</string>
     <!-- FDN list screen: menu item label -->
@@ -1950,7 +1952,7 @@
     <string name="srvcc_message">"4G voice call is downgraded to 2G/3G voice call due to 4G network is not available."</string>
     <string name="ut_not_support">UT is not available</string>
     <string name="ct_ut_not_support_close_4glte">UT is not available, please turn off Enhanced 4G LTE Mode in Settings</string>
-    <string name="switch_dds_to_sub_alert_msg">Please switch mobile data to CT SIM</string>
+    <string name="switch_dds_to_sub_alert_msg">Please switch mobile data to SIM</string>
 
     <!-- In-call screen: error message shown when the user attempts to place a call, but the device
          is currently in the process of being provisioned for service.  Provisioning is the process
@@ -2196,4 +2198,10 @@
     <string name="labelCommonMore_with_label">Call settings (<xliff:g id="subscriptionlabel" example="T-Mobile">%s</xliff:g>)</string>
     <string name="sum_common_call_settings">Additional call settings</string>
     <string name="ut_unavailable_to_set_video_cf_toast">UT is unavailable to set call forwarding for video, please close this page and exit.</string>
+    <!-- Instruction text to notify user that emergency calls may not be possible when voice is enabled over wifi. [CHAR LIMIT=NONE] -->
+    <string name="limited_service_alert_dialog_description"><b>Emergency calls via WiFi Calling</b>\nEmergency calls are not possible via WiFi Calling.
+\n\nThe device switches automatically to a cellular network (2G/3G) to place an emergency call.
+\n\nEmergency calls are only possible in areas with cellular coverage.</string>
+    <!-- Option to hide the popup dialog if it is not necessary for the user. [CHAR LIMIT=40] -->
+    <string name="do_not_show_again">Do not show again</string>
 </resources>

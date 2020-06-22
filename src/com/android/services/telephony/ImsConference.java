@@ -51,6 +51,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * Represents an IMS conference call.
@@ -171,18 +172,6 @@ public class ImsConference extends TelephonyConferenceBase implements Holdable {
             }
         }
 
-        private CarrierConfiguration(boolean isMaximumConferenceSizeEnforced,
-                int maximumConferenceSize, boolean shouldLocalDisconnectEmptyConference,
-                boolean isHoldAllowed, boolean isMultiAnchorConferenceSupported,
-                boolean filterOutConferenceHost) {
-            mIsMaximumConferenceSizeEnforced = isMaximumConferenceSizeEnforced;
-            mMaximumConferenceSize = maximumConferenceSize;
-            mShouldLocalDisconnectEmptyConference = shouldLocalDisconnectEmptyConference;
-            mIsHoldAllowed = isHoldAllowed;
-            mIsMultiAnchorConferenceSupported = isMultiAnchorConferenceSupported;
-            mFilterOutConferenceHost = filterOutConferenceHost;
-        }
-
         private boolean mIsMaximumConferenceSizeEnforced;
 
         private int mMaximumConferenceSize;
@@ -194,6 +183,18 @@ public class ImsConference extends TelephonyConferenceBase implements Holdable {
         private boolean mIsMultiAnchorConferenceSupported;
 
         private boolean mFilterOutConferenceHost;
+
+        private CarrierConfiguration(boolean isMaximumConferenceSizeEnforced,
+                int maximumConferenceSize, boolean shouldLocalDisconnectEmptyConference,
+                boolean isHoldAllowed, boolean isMultiAnchorConferenceSupported,
+                boolean filterOutConferenceHost) {
+            mIsMaximumConferenceSizeEnforced = isMaximumConferenceSizeEnforced;
+            mMaximumConferenceSize = maximumConferenceSize;
+            mShouldLocalDisconnectEmptyConference = shouldLocalDisconnectEmptyConference;
+            mIsHoldAllowed = isHoldAllowed;
+            mIsMultiAnchorConferenceSupported = isMultiAnchorConferenceSupported;
+            mFilterOutConferenceHost = filterOutConferenceHost;
+        }
 
         /**
          * Determines whether the {@link ImsConference} should enforce a size limit based on
@@ -309,8 +310,7 @@ public class ImsConference extends TelephonyConferenceBase implements Holdable {
                 public void onConnectionPropertiesChanged(Connection c, int connectionProperties) {
                     Log.d(this, "onConnectionPropertiesChanged: Connection: %s,"
                             + " connectionProperties: %s", c, connectionProperties);
-                    int properties = ImsConference.this.getConnectionProperties();
-                    setConnectionProperties(applyHostProperties(properties, connectionProperties));
+                    updateConnectionProperties(connectionProperties);
                 }
 
                 @Override
@@ -322,7 +322,7 @@ public class ImsConference extends TelephonyConferenceBase implements Holdable {
                 @Override
                 public void onExtrasChanged(Connection c, Bundle extras) {
                     Log.v(this, "onExtrasChanged: c=" + c + " Extras=" + extras);
-                    putExtras(extras);
+                    updateExtras(extras);
                 }
 
                 @Override
@@ -431,11 +431,10 @@ public class ImsConference extends TelephonyConferenceBase implements Holdable {
     private boolean mCouldManageConference;
     private FeatureFlagProxy mFeatureFlagProxy;
     private final CarrierConfiguration mCarrierConfig;
-    private boolean mIsEmulatingSinglePartyCall = false;
     private boolean mIsUsingSimCallManager = false;
 
     /**
-     * Where {@link #mIsEmulatingSinglePartyCall} is {@code true}, contains the
+     * Where {@link #isMultiparty()} is {@code false}, contains the
      * {@link ConferenceParticipantConnection#getUserEntity()} and
      * {@link ConferenceParticipantConnection#getEndpoint()} of the single participant which this
      * conference pretends to be.
@@ -503,7 +502,6 @@ public class ImsConference extends TelephonyConferenceBase implements Holdable {
                 mConferenceHost.getConnectionCapabilities(),
                 mConferenceHost.isCarrierVideoConferencingSupported());
         setConnectionCapabilities(capabilities);
-
     }
 
     /**
@@ -861,7 +859,7 @@ public class ImsConference extends TelephonyConferenceBase implements Holdable {
         boolean couldManageConference =
                 (getConnectionCapabilities() & Connection.CAPABILITY_MANAGE_CONFERENCE) != 0;
         boolean canManageConference = mFeatureFlagProxy.isUsingSinglePartyCallEmulation()
-                && mIsEmulatingSinglePartyCall
+                && !isMultiparty()
                 ? mConferenceParticipantConnections.size() > 1
                 : mConferenceParticipantConnections.size() != 0;
         Log.v(this, "updateManageConference was :%s is:%s", couldManageConference ? "Y" : "N",
@@ -888,9 +886,7 @@ public class ImsConference extends TelephonyConferenceBase implements Holdable {
      * @param conferenceHost The connection hosting the conference.
      */
     private void setConferenceHost(TelephonyConnection conferenceHost) {
-        if (Log.VERBOSE) {
-            Log.v(this, "setConferenceHost " + conferenceHost);
-        }
+        Log.i(this, "setConferenceHost " + conferenceHost);
 
         mConferenceHost = conferenceHost;
 
@@ -921,6 +917,12 @@ public class ImsConference extends TelephonyConferenceBase implements Holdable {
 
             mConferenceHostAddress = new Uri[hostAddresses.size()];
             mConferenceHostAddress = hostAddresses.toArray(mConferenceHostAddress);
+
+            Log.i(this, "setConferenceHost: hosts are "
+                    + Arrays.stream(mConferenceHostAddress)
+                    .map(Uri::getSchemeSpecificPart)
+                    .map(ssp -> Rlog.pii(LOG_TAG, ssp))
+                    .collect(Collectors.joining(", ")));
 
             mIsUsingSimCallManager = mTelecomAccountRegistry.isUsingSimCallManager(
                     mConferenceHostPhoneAccountHandle);
@@ -1004,8 +1006,8 @@ public class ImsConference extends TelephonyConferenceBase implements Holdable {
             // 1. We're not emulating a single party call.
             // 2. We're emulating a single party call and the CEP contains more than just the
             //    single party
-            if ((mIsEmulatingSinglePartyCall && !isSinglePartyConference) ||
-                !mIsEmulatingSinglePartyCall) {
+            if ((!isMultiparty() && !isSinglePartyConference)
+                    || isMultiparty()) {
                 // Add any new participants and update existing.
                 for (ConferenceParticipant participant : participants) {
                     Pair<Uri, Uri> userEntity = new Pair<>(participant.getHandle(),
@@ -1100,7 +1102,7 @@ public class ImsConference extends TelephonyConferenceBase implements Holdable {
                 if (oldParticipantCount != 1 && newParticipantCount == 1) {
                     // If number of participants goes to 1, emulate a single party call.
                     startEmulatingSinglePartyCall();
-                } else if (mIsEmulatingSinglePartyCall && !isSinglePartyConference) {
+                } else if (!isMultiparty() && !isSinglePartyConference) {
                     // Number of participants increased, so stop emulating a single party call.
                     stopEmulatingSinglePartyCall();
                 }
@@ -1142,7 +1144,6 @@ public class ImsConference extends TelephonyConferenceBase implements Holdable {
 
         Log.i(this, "stopEmulatingSinglePartyCall: conference now has more than one"
                 + " participant; make it look conference-like again.");
-        mIsEmulatingSinglePartyCall = false;
 
         if (mCouldManageConference) {
             int currentCapabilities = getConnectionCapabilities();
@@ -1192,7 +1193,6 @@ public class ImsConference extends TelephonyConferenceBase implements Holdable {
         Log.i(this, "startEmulatingSinglePartyCall: conference has a single "
                 + "participant; downgrade to single party call.");
 
-        mIsEmulatingSinglePartyCall = true;
         Iterator<ConferenceParticipantConnection> valueIterator =
                 mConferenceParticipantConnections.values().iterator();
         if (valueIterator.hasNext()) {
@@ -1205,6 +1205,7 @@ public class ImsConference extends TelephonyConferenceBase implements Holdable {
             setConnectionStartElapsedRealtimeMillis(
                     entry.getConnectionStartElapsedRealtimeMillis());
             setConnectionTime(entry.getConnectTimeMillis());
+            setCallDirection(entry.getCallDirection());
             mLoneParticipantIdentity = new Pair<>(entry.getUserEntity(), entry.getEndpoint());
 
             // Remove the participant from Telecom.  It'll get picked up in a future CEP update
@@ -1256,6 +1257,12 @@ public class ImsConference extends TelephonyConferenceBase implements Holdable {
         // Indicate whether this is an MT or MO call to Telecom; the participant has the cached
         // data from the time of merge.
         connection.setCallDirection(participant.getCallDirection());
+
+        // Ensure important attributes of the parent get copied to child.
+        connection.setConnectionProperties(applyHostPropertiesToChild(
+                connection.getConnectionProperties(), parent.getConnectionProperties()));
+        connection.setStatusHints(parent.getStatusHints());
+        connection.setExtras(getChildExtrasFromHostBundle(parent.getExtras()));
 
         Log.i(this, "createConferenceParticipantConnection: participant=%s, connection=%s",
                 participant, connection);
@@ -1409,7 +1416,7 @@ public class ImsConference extends TelephonyConferenceBase implements Holdable {
             if (mConferenceHost.getPhone().getPhoneType() == PhoneConstants.PHONE_TYPE_GSM) {
                 Log.i(this,"handleOriginalConnectionChange : SRVCC to GSM");
                 GsmConnection c = new GsmConnection(originalConnection, getTelecomCallId(),
-                        mConferenceHost.isOutgoingCall());
+                        mConferenceHost.getCallDirection());
                 // This is a newly created conference connection as a result of SRVCC
                 c.setConferenceSupported(true);
                 c.setTelephonyConnectionProperties(
@@ -1509,15 +1516,84 @@ public class ImsConference extends TelephonyConferenceBase implements Holdable {
                         displaySubId  = " " + displaySubId;
                     }
                 }
-                setStatusHints(new StatusHints(
+                StatusHints hints = new StatusHints(
                         context.getString(R.string.status_hint_label_wifi_call) + displaySubId,
                         Icon.createWithResource(
                                 context, R.drawable.ic_signal_wifi_4_bar_24dp),
-                        null /* extras */));
+                        null /* extras */);
+                setStatusHints(hints);
+
+                // Ensure the children know they're a WIFI call as well.
+                for (Connection c : getConnections()) {
+                    c.setStatusHints(hints);
+                }
             }
         } else {
             setStatusHints(null);
         }
+    }
+
+    /**
+     * Updates the conference's properties based on changes to the host.
+     * Also ensures pertinent properties from the host such as the WIFI property are copied to the
+     * children as well.
+     * @param connectionProperties The new host properties.
+     */
+    private void updateConnectionProperties(int connectionProperties) {
+        int properties = ImsConference.this.getConnectionProperties();
+        setConnectionProperties(applyHostProperties(properties, connectionProperties));
+
+        for (Connection c : getConnections()) {
+            c.setConnectionProperties(applyHostPropertiesToChild(c.getConnectionProperties(),
+                    connectionProperties));
+        }
+    }
+
+    /**
+     * Updates extras in the conference based on changes made in the parent.
+     * Also copies select extras (e.g. EXTRA_CALL_NETWORK_TYPE) to the children as well.
+     * @param extras The extras to copy.
+     */
+    private void updateExtras(Bundle extras) {
+        putExtras(extras);
+
+        if (extras == null) {
+            return;
+        }
+
+        Bundle childBundle = getChildExtrasFromHostBundle(extras);
+        for (Connection c : getConnections()) {
+            c.putExtras(childBundle);
+        }
+    }
+
+    /**
+     * Given an extras bundle from the host, returns a new bundle containing those extras which are
+     * releveant to the children.
+     * @param extras The host extras.
+     * @return The extras pertinent to the children.
+     */
+    private Bundle getChildExtrasFromHostBundle(Bundle extras) {
+        Bundle extrasToCopy = new Bundle();
+        if (extras != null && extras.containsKey(TelecomManager.EXTRA_CALL_NETWORK_TYPE)) {
+            int networkType = extras.getInt(TelecomManager.EXTRA_CALL_NETWORK_TYPE);
+            extrasToCopy.putInt(TelecomManager.EXTRA_CALL_NETWORK_TYPE, networkType);
+        }
+        return extrasToCopy;
+    }
+
+    /**
+     * Given the properties from a conference host applies and changes to the host's properties to
+     * the child as well.
+     * @param childProperties The existing child properties.
+     * @param hostProperties The properties from the host.
+     * @return The child properties with the applicable host bits set/unset.
+     */
+    private int applyHostPropertiesToChild(int childProperties, int hostProperties) {
+        childProperties = changeBitmask(childProperties,
+                Connection.PROPERTY_WIFI,
+                (hostProperties & Connection.PROPERTY_WIFI) != 0);
+        return childProperties;
     }
 
     /**
@@ -1563,14 +1639,6 @@ public class ImsConference extends TelephonyConferenceBase implements Holdable {
     public boolean isFullConference() {
         return mCarrierConfig.isMaximumConferenceSizeEnforced()
                 && getNumberOfParticipants() >= mCarrierConfig.getMaximumConferenceSize();
-    }
-
-    /**
-     * @return {@code True} if the ImsConference is emulating single party call.
-     */
-    @VisibleForTesting
-    public boolean isEmulatingSinglePartyCall() {
-        return mIsEmulatingSinglePartyCall;
     }
 
     /**

@@ -64,6 +64,7 @@ import com.android.internal.telephony.imsphone.ImsPhone;
 import com.android.internal.telephony.imsphone.ImsPhoneConnection;
 import com.android.phone.MMIDialogActivity;
 import com.android.phone.PhoneUtils;
+import com.android.phone.PhoneGlobals;
 import com.android.phone.R;
 
 import java.lang.ref.WeakReference;
@@ -1188,9 +1189,17 @@ public class TelephonyConnectionService extends ConnectionService {
                     "Treat as an Emergency Call.");
             isEmergency = true;
         }
-        Phone phone = getPhoneForAccount(accountHandle, isEmergency,
-                /* Note: when not an emergency, handle can be null for unknown callers */
-                request.getAddress() == null ? null : request.getAddress().getSchemeSpecificPart());
+
+        Phone phone;
+        if (isEmergency) {
+            phone = PhoneGlobals.getInstance().getPhoneInEcm();
+        } else {
+            phone = getPhoneForAccount(accountHandle, isEmergency,
+                    /* Note: when not an emergency, handle can be null for unknown callers */
+                    request.getAddress() == null ? null :
+                            request.getAddress().getSchemeSpecificPart());
+        }
+
         if (phone == null) {
             return Connection.createFailedConnection(
                     mDisconnectCauseFactory.toTelecomDisconnectCause(
@@ -1832,12 +1841,14 @@ public class TelephonyConnectionService extends ConnectionService {
             boolean isAdhocConference) {
         TelephonyConnection returnConnection = null;
         int phoneType = phone.getPhoneType();
+        int callDirection = isOutgoing ? android.telecom.Call.Details.DIRECTION_OUTGOING
+                : android.telecom.Call.Details.DIRECTION_INCOMING;
         if (phoneType == TelephonyManager.PHONE_TYPE_GSM) {
-            returnConnection = new GsmConnection(originalConnection, telecomCallId, isOutgoing);
+            returnConnection = new GsmConnection(originalConnection, telecomCallId, callDirection);
         } else if (phoneType == TelephonyManager.PHONE_TYPE_CDMA) {
             boolean allowsMute = allowsMute(phone);
             returnConnection = new CdmaConnection(originalConnection, mEmergencyTonePlayer,
-                    allowsMute, isOutgoing, telecomCallId);
+                    allowsMute, callDirection, telecomCallId);
         }
         if (returnConnection != null) {
             if (!isAdhocConference) {

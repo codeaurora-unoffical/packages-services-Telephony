@@ -16,6 +16,7 @@ import android.os.PersistableBundle;
 import android.os.SystemProperties;
 import android.preference.Preference;
 import android.preference.PreferenceScreen;
+import android.provider.Settings;
 import android.telephony.CarrierConfigManager;
 import android.telephony.ims.feature.ImsFeature;
 import android.telephony.SubscriptionManager;
@@ -96,7 +97,9 @@ public class GsmUmtsCallForwardOptions extends TimeConsumingPreferenceActivity
             mCheckData = pb.getBoolean("check_mobile_data_for_cf");
         }
         PersistableBundle b = null;
+        boolean supportCFB = true;
         boolean supportCFNRc = true;
+        boolean supportCFNRy = true;
         if (mSubscriptionInfoHelper.hasSubId()) {
             b = PhoneGlobals.getInstance().getCarrierConfigForSubId(
                     mSubscriptionInfoHelper.getSubId());
@@ -108,8 +111,12 @@ public class GsmUmtsCallForwardOptions extends TimeConsumingPreferenceActivity
                     CarrierConfigManager.KEY_CALL_FORWARDING_MAP_NON_NUMBER_TO_VOICEMAIL_BOOL);
             mCallForwardByUssd = b.getBoolean(
                     CarrierConfigManager.KEY_USE_CALL_FORWARDING_USSD_BOOL);
+            supportCFB = b.getBoolean(
+                    CarrierConfigManager.KEY_CALL_FORWARDING_WHEN_BUSY_SUPPORTED_BOOL);
             supportCFNRc = b.getBoolean(
                     CarrierConfigManager.KEY_CALL_FORWARDING_WHEN_UNREACHABLE_SUPPORTED_BOOL);
+            supportCFNRy = b.getBoolean(
+                    CarrierConfigManager.KEY_CALL_FORWARDING_WHEN_UNANSWERED_SUPPORTED_BOOL);
         }
 
         PreferenceScreen prefSet = getPreferenceScreen();
@@ -124,18 +131,9 @@ public class GsmUmtsCallForwardOptions extends TimeConsumingPreferenceActivity
         mButtonCFNRc.setParentActivity(this, mButtonCFNRc.reason);
 
         mPreferences.add(mButtonCFU);
-        mPreferences.add(mButtonCFB);
-        mPreferences.add(mButtonCFNRy);
-
-        if (supportCFNRc) {
-            mPreferences.add(mButtonCFNRc);
-        } else {
-            // When CFNRc is not supported, mButtonCFNRc is grayed out from the menu.
-            // Default state for the preferences in this PreferenceScreen is disabled.
-            // Only preferences listed in the ArrayList mPreferences will be enabled.
-            // By not adding mButtonCFNRc to mPreferences it will be kept disabled.
-            if (DBG) Log.d(LOG_TAG, "onCreate: CFNRc is not supported, grey out the item.");
-        }
+        layoutCallForwardItem(supportCFB, mButtonCFB, prefSet);
+        layoutCallForwardItem(supportCFNRy, mButtonCFNRy, prefSet);
+        layoutCallForwardItem(supportCFNRc, mButtonCFNRc, prefSet);
 
         if (mCallForwardByUssd) {
             //the call forwarding ussd command's behavior is similar to the call forwarding when
@@ -167,6 +165,15 @@ public class GsmUmtsCallForwardOptions extends TimeConsumingPreferenceActivity
         if (actionBar != null) {
             // android.R.id.home will be triggered in onOptionsItemSelected()
             actionBar.setDisplayHomeAsUpEnabled(true);
+        }
+    }
+
+    private void layoutCallForwardItem(boolean support, CallForwardEditPreference preference,
+            PreferenceScreen prefSet) {
+        if (support) {
+            mPreferences.add(preference);
+        } else {
+            prefSet.removePreference(preference);
         }
     }
 
@@ -373,7 +380,8 @@ public class GsmUmtsCallForwardOptions extends TimeConsumingPreferenceActivity
             builder.setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
                 @Override
                 public void onClick(DialogInterface dialog, int which) {
-                    Intent newIntent = new Intent("com.qualcomm.qti.simsettings.SIM_SETTINGS");
+                    Intent newIntent = new Intent(Settings.ACTION_NETWORK_OPERATOR_SETTINGS);
+                    newIntent.putExtra(Settings.EXTRA_SUB_ID,mPhone.getSubId());
                     newIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                     startActivity(newIntent);
                 }

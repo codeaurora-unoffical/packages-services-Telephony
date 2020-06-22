@@ -115,6 +115,7 @@ import android.telephony.ims.stub.ImsConfigImplBase;
 import android.telephony.ims.stub.ImsRegistrationImplBase;
 import android.text.TextUtils;
 import android.util.ArraySet;
+import android.util.EventLog;
 import android.util.Log;
 import android.util.Pair;
 
@@ -2314,29 +2315,15 @@ public class PhoneInterfaceManager extends ITelephony.Stub {
                 phoneId = SubscriptionManager.DEFAULT_PHONE_INDEX;
             }
             final int subId = mSubscriptionController.getSubIdUsingPhoneId(phoneId);
-            // Todo: fix this when we can get the actual cellular network info when the device
-            // is on IWLAN.
-            if (TelephonyManager.NETWORK_TYPE_IWLAN
-                    == getVoiceNetworkTypeForSubscriber(subId, mApp.getPackageName(),
-                    mApp.getAttributionTag())) {
-                return "";
-            }
             Phone phone = PhoneFactory.getPhone(phoneId);
-            if (phone != null) {
-                ServiceStateTracker sst = phone.getServiceStateTracker();
-                EmergencyNumberTracker emergencyNumberTracker = phone.getEmergencyNumberTracker();
-                if (sst != null) {
-                    LocaleTracker lt = sst.getLocaleTracker();
-                    if (lt != null) {
-                        if (!TextUtils.isEmpty(lt.getCurrentCountry())) {
-                            return lt.getCurrentCountry();
-                        } else if (emergencyNumberTracker != null) {
-                            return emergencyNumberTracker.getEmergencyCountryIso();
-                        }
-                    }
-                }
-            }
-            return "";
+            if (phone == null) return "";
+            ServiceStateTracker sst = phone.getServiceStateTracker();
+            if (sst == null) return "";
+            LocaleTracker lt = sst.getLocaleTracker();
+            if (lt == null) return "";
+            if (!TextUtils.isEmpty(lt.getCurrentCountry())) return lt.getCurrentCountry();
+            EmergencyNumberTracker ent = phone.getEmergencyNumberTracker();
+            return (ent == null) ? "" : ent.getEmergencyCountryIso();
         } finally {
             Binder.restoreCallingIdentity(identity);
         }
@@ -2514,12 +2501,21 @@ public class PhoneInterfaceManager extends ITelephony.Stub {
                                 .setCallingPid(Binder.getCallingPid())
                                 .setCallingUid(Binder.getCallingUid())
                                 .setMethod("requestCellInfoUpdate")
-                                .setMinSdkVersionForFine(Build.VERSION_CODES.Q)
+                                .setMinSdkVersionForCoarse(Build.VERSION_CODES.BASE)
+                                .setMinSdkVersionForFine(Build.VERSION_CODES.BASE)
                                 .build());
         switch (locationResult) {
             case DENIED_HARD:
+                if (getTargetSdk(callingPackage) < Build.VERSION_CODES.Q) {
+                    // Safetynet logging for b/154934934
+                    EventLog.writeEvent(0x534e4554, "154934934", Binder.getCallingUid());
+                }
                 throw new SecurityException("Not allowed to access cell info");
             case DENIED_SOFT:
+                if (getTargetSdk(callingPackage) < Build.VERSION_CODES.Q) {
+                    // Safetynet logging for b/154934934
+                    EventLog.writeEvent(0x534e4554, "154934934", Binder.getCallingUid());
+                }
                 try {
                     cb.onCellInfo(new ArrayList<CellInfo>());
                 } catch (RemoteException re) {
@@ -5023,6 +5019,22 @@ public class PhoneInterfaceManager extends ITelephony.Stub {
                 return null;
             }
             return mImsResolver.getRcsFeatureAndListen(slotId, callback);
+        } finally {
+            Binder.restoreCallingIdentity(identity);
+        }
+    }
+
+    /**
+     * Unregister a previously registered IImsServiceFeatureCallback associated with an ImsFeature.
+     */
+    public void unregisterImsFeatureCallback(int slotId, int featureType,
+            IImsServiceFeatureCallback callback) {
+        enforceModifyPermission();
+
+        final long identity = Binder.clearCallingIdentity();
+        try {
+            if (mImsResolver == null) return;
+            mImsResolver.unregisterImsFeatureCallback(slotId, featureType, callback);
         } finally {
             Binder.restoreCallingIdentity(identity);
         }
@@ -8524,5 +8536,10 @@ public class PhoneInterfaceManager extends ITelephony.Stub {
             mMainThreadHandler.sendEmptyMessageDelayed(MSG_NOTIFY_USER_ACTIVITY,
                     USER_ACTIVITY_NOTIFICATION_DELAY);
         }
+    }
+
+    @Override
+    public boolean canConnectTo5GInDsdsMode() {
+        return mApp.getResources().getBoolean(R.bool.config_5g_connection_in_dsds_mode);
     }
 }

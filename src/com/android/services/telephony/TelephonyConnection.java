@@ -76,6 +76,7 @@ import com.android.phone.PhoneUtils;
 import com.android.phone.R;
 import com.android.telephony.Rlog;
 
+import org.codeaurora.ims.QtiCallConstants;
 import org.codeaurora.ims.utils.QtiImsExtUtils;
 
 import java.util.ArrayList;
@@ -823,11 +824,6 @@ abstract class TelephonyConnection extends Connection implements Holdable,
     private boolean mIsCdmaVoicePrivacyEnabled;
 
     /**
-     * Indicates whether this call is an outgoing call.
-     */
-    protected final boolean mIsOutgoing;
-
-    /**
      * Indicates whether the connection can be held. This filed combined with the state of the
      * connection can determine whether {@link Connection#CAPABILITY_HOLD} should be added to the
      * connection.
@@ -861,8 +857,8 @@ abstract class TelephonyConnection extends Connection implements Holdable,
             new ConcurrentHashMap<TelephonyConnectionListener, Boolean>(8, 0.9f, 1));
 
     protected TelephonyConnection(com.android.internal.telephony.Connection originalConnection,
-            String callId, boolean isOutgoingCall) {
-        mIsOutgoing = isOutgoingCall;
+            String callId, @android.telecom.Call.Details.CallDirection int callDirection) {
+        setCallDirection(callDirection);
         setTelecomCallId(callId);
         if (originalConnection != null) {
             setOriginalConnection(originalConnection);
@@ -1461,6 +1457,7 @@ abstract class TelephonyConnection extends Connection implements Holdable,
         } else {
             extrasToRemove.add(QtiImsExtUtils.QTI_IMS_PHONE_ID_EXTRA_KEY);
             extrasToRemove.add(QtiImsExtUtils.EXTRA_TIR_OVERWRITE_ALLOWED);
+            extrasToRemove.add(QtiCallConstants.ORIENTATION_MODE_EXTRA_KEY);
         }
 
         mIsMultiParty = mOriginalConnection.isMultiparty();
@@ -2057,7 +2054,7 @@ abstract class TelephonyConnection extends Connection implements Holdable,
      */
     public List<ConferenceParticipant> getConferenceParticipants() {
         if (mOriginalConnection == null) {
-            Log.v(this, "Null mOriginalConnection, cannot get conf participants.");
+            Log.w(this, "Null mOriginalConnection, cannot get conf participants.");
             return null;
         }
         return mOriginalConnection.getConferenceParticipants();
@@ -2515,8 +2512,8 @@ abstract class TelephonyConnection extends Connection implements Holdable,
     /**
      * @return {@code true} if this is an outgoing call, {@code false} otherwise.
      */
-    boolean isOutgoingCall() {
-        return mIsOutgoing;
+    public boolean isOutgoingCall() {
+        return getCallDirection() == android.telecom.Call.Details.DIRECTION_OUTGOING;
     }
 
     /**

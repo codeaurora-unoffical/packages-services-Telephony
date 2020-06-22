@@ -18,7 +18,7 @@ package com.android.services.telephony;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertNotNull;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.never;
@@ -28,22 +28,28 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.net.Uri;
+import android.os.Bundle;
 import android.os.Looper;
 import android.telecom.Call;
 import android.telecom.Conference;
 import android.telecom.Connection;
 import android.telecom.PhoneAccountHandle;
+import android.telecom.StatusHints;
+import android.telecom.TelecomManager;
+import android.telephony.TelephonyManager;
 import android.test.suitebuilder.annotation.SmallTest;
 
 import com.android.ims.internal.ConferenceParticipant;
 
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 
 public class ImsConferenceTest {
     @Mock
@@ -65,6 +71,53 @@ public class ImsConferenceTest {
         when(mMockTelecomAccountRegistry.getAddress(any(PhoneAccountHandle.class)))
                 .thenReturn(null);
     }
+    @Test
+    @SmallTest
+    public void testPropertyPropagation() {
+        when(mMockTelecomAccountRegistry.isUsingSimCallManager(any(PhoneAccountHandle.class)))
+                .thenReturn(false);
+        mConferenceHost.setConnectionProperties(Connection.PROPERTY_ASSISTED_DIALING
+                | Connection.PROPERTY_WIFI);
+        Bundle extras = new Bundle();
+        extras.putInt(TelecomManager.EXTRA_CALL_NETWORK_TYPE, TelephonyManager.NETWORK_TYPE_IWLAN);
+        mConferenceHost.putTelephonyExtras(extras);
+        mConferenceHost.setStatusHints(new StatusHints("WIFIs", null, null));
+
+        ImsConference imsConference = new ImsConference(mMockTelecomAccountRegistry,
+                mMockTelephonyConnectionServiceProxy, mConferenceHost,
+                null /* phoneAccountHandle */, () -> true /* featureFlagProxy */,
+                new ImsConference.CarrierConfiguration.Builder().build());
+
+        ConferenceParticipant participant1 = new ConferenceParticipant(
+                Uri.parse("tel:6505551212"),
+                "A",
+                Uri.parse("sip:6505551212@testims.com"),
+                Connection.STATE_ACTIVE,
+                Call.Details.DIRECTION_OUTGOING);
+        ConferenceParticipant participant2 = new ConferenceParticipant(
+                Uri.parse("tel:6505551213"),
+                "A",
+                Uri.parse("sip:6505551213@testims.com"),
+                Connection.STATE_ACTIVE,
+                Call.Details.DIRECTION_INCOMING);
+        imsConference.handleConferenceParticipantsUpdate(mConferenceHost,
+                Arrays.asList(participant1, participant2));
+        assertEquals(2, imsConference.getNumberOfParticipants());
+        ArgumentCaptor<Connection> captor = ArgumentCaptor.forClass(Connection.class);
+        verify(mMockTelephonyConnectionServiceProxy, times(2)).addExistingConnection(
+                any(PhoneAccountHandle.class), captor.capture(),
+                eq(imsConference));
+
+        // Make sure they're set on the initially created participants.
+        for (Connection c : captor.getAllValues()) {
+            assertEquals(0, c.getConnectionProperties() & Connection.PROPERTY_ASSISTED_DIALING);
+            assertEquals(Connection.PROPERTY_WIFI,
+                    c.getConnectionProperties() & Connection.PROPERTY_WIFI);
+            assertNotNull(c.getStatusHints());
+            assertEquals(TelephonyManager.NETWORK_TYPE_IWLAN, c.getExtras().getInt(
+                    TelecomManager.EXTRA_CALL_NETWORK_TYPE));
+        }
+    }
 
     @Test
     @SmallTest
@@ -82,7 +135,7 @@ public class ImsConferenceTest {
                 "A",
                 Uri.parse("sip:6505551212@testims.com"),
                 Connection.STATE_ACTIVE,
-                Call.Details.DIRECTION_INCOMING);
+                Call.Details.DIRECTION_OUTGOING);
         ConferenceParticipant participant2 = new ConferenceParticipant(
                 Uri.parse("tel:6505551213"),
                 "A",
@@ -100,6 +153,8 @@ public class ImsConferenceTest {
         imsConference.handleConferenceParticipantsUpdate(mConferenceHost,
                 Arrays.asList(participant1));
         assertEquals(0, imsConference.getNumberOfParticipants());
+        // Ensure the call direction is set correctly during emulation
+        assertEquals(Call.Details.DIRECTION_OUTGOING, imsConference.getCallDirection());
         reset(mMockTelephonyConnectionServiceProxy);
 
         // Back to 2!
@@ -371,7 +426,37 @@ public class ImsConferenceTest {
                 Call.Details.DIRECTION_INCOMING);
         imsConference.handleConferenceParticipantsUpdate(mConferenceHost,
                 Arrays.asList(participant1));
-        assertTrue(imsConference.isEmulatingSinglePartyCall());
+        assertFalse(imsConference.isMultiparty());
+    }
+
+    /**
+     * Verify that the single party emulate correctly when the conference starts with a single
+     * party as part of the initial setup.  This mimics how an ImsCall can get CEP data prior to the
+     * ImsConference being created.
+     */
+    @Test
+    @SmallTest
+    public void testSinglePartyEmulationWithSinglePartyAtCreation() {
+        when(mMockTelecomAccountRegistry.isUsingSimCallManager(any(PhoneAccountHandle.class)))
+                .thenReturn(false);
+
+        ImsConference imsConference = new ImsConference(mMockTelecomAccountRegistry,
+                mMockTelephonyConnectionServiceProxy, mConferenceHost,
+                null /* phoneAccountHandle */, () -> true /* featureFlagProxy */,
+                new ImsConference.CarrierConfiguration.Builder().build());
+
+        ConferenceParticipant participant1 = new ConferenceParticipant(
+                Uri.parse("tel:6505551214"),
+                "A",
+                Uri.parse("sip:6505551214@testims.com"),
+                Connection.STATE_ACTIVE,
+                Call.Details.DIRECTION_INCOMING);
+        List<ConferenceParticipant> cps = Arrays.asList(participant1);
+        when(mConferenceHost.mMockRadioConnection.getConferenceParticipants())
+                .thenReturn(cps);
+        imsConference.updateConferenceParticipantsAfterCreation();
+
+        assertFalse(imsConference.isMultiparty());
     }
 
     /**
