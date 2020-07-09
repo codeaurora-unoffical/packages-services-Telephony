@@ -1474,14 +1474,11 @@ public class TelecomAccountRegistry {
                     final int PROVISIONED = 1;
                     final int INVALID_STATE = -1;
                     final int CARD_NOT_PRESENT = -2;
-                    boolean isInEcm = false;
 
                     for (Phone phone : phones) {
                         int provisionStatus = PROVISIONED;
                         int subscriptionId = phone.getSubId();
                         int slotId = phone.getPhoneId();
-                        isInEcm = Boolean.parseBoolean(mTelephonyManager.getTelephonyProperty(slotId,
-                                TelephonyProperties.PROPERTY_INECM_MODE, "false"));
                         boolean isAccountAdded = false;
 
                         if (mTelephonyManager.getPhoneCount() > 1) {
@@ -1516,6 +1513,17 @@ public class TelecomAccountRegistry {
                         if (!SubscriptionManager.isValidSubscriptionId(subscriptionId)
                                 || phone.getFullIccSerialNumber() == null) {
                             Log.d(this, "setupAccounts: skipping invalid subid %d", subscriptionId);
+                            // If device configured in dsds mode, a SIM removed and if corresponding
+                            // phone is in ECM then add emergency account to that sub so that
+                            // incoming emergency call can be processed.
+                            Phone phoneInEcm = PhoneGlobals.getInstance().getPhoneInEcm();
+                            if ((mTelephonyManager.getPhoneCount() > 1)
+                                    && (phoneInEcm != null)
+                                    && phoneInEcm.getPhoneId() == phone.getPhoneId()) {
+                                mAccounts.add(new AccountEntry(phoneInEcm, true /* emergency */,
+                                        false /* isDummy */));
+                                isAccountAdded = true;
+                            }
                             continue;
                         }
                         // Don't add account if it's opportunistic subscription, which is considered
@@ -1535,18 +1543,6 @@ public class TelecomAccountRegistry {
                             mAccounts.add(new AccountEntry(phone, false /* emergency */,
                                     false /* isDummy */));
                             isAccountAdded = true;
-                        } else {
-                            // If device configured in dsds mode, a SIM removed and if corresponding
-                            // phone is in ECM then add emergency account to that sub so that
-                            // incoming emergency call can be processed.
-                            Phone phoneInEcm = PhoneGlobals.getInstance().getPhoneInEcm();
-                            if ((mTelephonyManager.getPhoneCount() > 1)
-                                    && isInEcm && (phoneInEcm != null)
-                                    && phoneInEcm.getPhoneId() == phone.getPhoneId()) {
-                                mAccounts.add(new AccountEntry(phoneInEcm, true /* emergency */,
-                                        false /* isDummy */));
-                                isAccountAdded = true;
-                            }
                         }
                         // Speacial case where one sub sim locked other sub reporting emergency service
                         // emergency call placed will initiate on primary sub i.e sub which is reporting

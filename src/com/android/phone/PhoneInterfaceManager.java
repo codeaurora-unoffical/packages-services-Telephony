@@ -115,6 +115,7 @@ import android.telephony.ims.stub.ImsConfigImplBase;
 import android.telephony.ims.stub.ImsRegistrationImplBase;
 import android.text.TextUtils;
 import android.util.ArraySet;
+import android.util.EventLog;
 import android.util.Log;
 import android.util.Pair;
 
@@ -2500,12 +2501,21 @@ public class PhoneInterfaceManager extends ITelephony.Stub {
                                 .setCallingPid(Binder.getCallingPid())
                                 .setCallingUid(Binder.getCallingUid())
                                 .setMethod("requestCellInfoUpdate")
-                                .setMinSdkVersionForFine(Build.VERSION_CODES.Q)
+                                .setMinSdkVersionForCoarse(Build.VERSION_CODES.BASE)
+                                .setMinSdkVersionForFine(Build.VERSION_CODES.BASE)
                                 .build());
         switch (locationResult) {
             case DENIED_HARD:
+                if (getTargetSdk(callingPackage) < Build.VERSION_CODES.Q) {
+                    // Safetynet logging for b/154934934
+                    EventLog.writeEvent(0x534e4554, "154934934", Binder.getCallingUid());
+                }
                 throw new SecurityException("Not allowed to access cell info");
             case DENIED_SOFT:
+                if (getTargetSdk(callingPackage) < Build.VERSION_CODES.Q) {
+                    // Safetynet logging for b/154934934
+                    EventLog.writeEvent(0x534e4554, "154934934", Binder.getCallingUid());
+                }
                 try {
                     cb.onCellInfo(new ArrayList<CellInfo>());
                 } catch (RemoteException re) {
@@ -5575,6 +5585,74 @@ public class PhoneInterfaceManager extends ITelephony.Stub {
                 Settings.Global.PREFERRED_NETWORK_MODE + subId,
                 RILConstants.PREFERRED_NETWORK_MODE);
         return setPreferredNetworkType(subId, preferredNetworkMode);
+    }
+
+    /**
+     * Get the allowed network types for certain reason.
+     *
+     * @param subId the id of the subscription.
+     * @param reason the reason the allowed network type change is taking place
+     * @return the allowed network types.
+     */
+    @Override
+    public long getAllowedNetworkTypesForReason(int subId,
+            @TelephonyManager.AllowedNetworkTypesReason int reason) {
+        TelephonyPermissions
+                .enforeceCallingOrSelfReadPrivilegedPhoneStatePermissionOrCarrierPrivilege(
+                        mApp, subId, "getAllowedNetworkTypesForReason");
+        final long identity = Binder.clearCallingIdentity();
+        try {
+            return getPhoneFromSubId(subId).getAllowedNetworkTypes(reason);
+        } finally {
+            Binder.restoreCallingIdentity(identity);
+        }
+    }
+
+    /**
+     * Get the effective allowed network types on the device.
+     * This API will return an intersection of allowed network types for all reasons,
+     * including the configuration done through setAllowedNetworkTypes
+     *
+     * @param subId the id of the subscription.
+     * @return the allowed network types
+     */
+    @Override
+    public long getEffectiveAllowedNetworkTypes(int subId) {
+        TelephonyPermissions
+                .enforeceCallingOrSelfReadPrivilegedPhoneStatePermissionOrCarrierPrivilege(
+                        mApp, subId, "getEffectiveAllowedNetworkTypes");
+        final long identity = Binder.clearCallingIdentity();
+        try {
+            return getPhoneFromSubId(subId).getEffectiveAllowedNetworkTypes();
+        } finally {
+            Binder.restoreCallingIdentity(identity);
+        }
+    }
+
+    /**
+     * Set the allowed network types of the device and
+     * provide the reason triggering the allowed network change.
+     *
+     * @param subId the id of the subscription.
+     * @param reason the reason the allowed network type change is taking place
+     * @param allowedNetworkTypes the allowed network types.
+     * @return true on success; false on any failure.
+     */
+    @Override
+    public boolean setAllowedNetworkTypesForReason(int subId,
+            @TelephonyManager.AllowedNetworkTypesReason int reason, long allowedNetworkTypes) {
+        TelephonyPermissions.enforceCallingOrSelfModifyPermissionOrCarrierPrivilege(
+                mApp, subId, "setAllowedNetworkTypesForReason");
+        final long identity = Binder.clearCallingIdentity();
+        try {
+            getPhoneFromSubId(subId).setAllowedNetworkTypes(reason, allowedNetworkTypes);
+            int preferredNetworkMode = Settings.Global.getInt(mApp.getContentResolver(),
+                    Settings.Global.PREFERRED_NETWORK_MODE + subId,
+                    RILConstants.PREFERRED_NETWORK_MODE);
+            return setPreferredNetworkType(subId, preferredNetworkMode);
+        } finally {
+            Binder.restoreCallingIdentity(identity);
+        }
     }
 
     /**
