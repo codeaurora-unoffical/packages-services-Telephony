@@ -1927,6 +1927,10 @@ abstract class TelephonyConnection extends Connection implements Holdable,
 
     protected void hangup(int telephonyDisconnectCode) {
         if (mOriginalConnection != null) {
+            if (mHangupDisconnectCause != DisconnectCause.NOT_VALID) {
+                Log.i(this, "hangup already called once");
+                return;
+            }
             mHangupDisconnectCause = telephonyDisconnectCode;
             try {
                 // Hanging up a ringing call requires that we invoke call.hangup() as opposed to
@@ -2119,6 +2123,12 @@ abstract class TelephonyConnection extends Connection implements Holdable,
 
                     // Ensure extras are propagated to Telecom.
                     putTelephonyExtras(mOriginalConnectionExtras);
+                    // If extras contain Conference support information,
+                    // then ensure capabilities are updated and propagated to Telecom.
+                    if (mOriginalConnectionExtras.containsKey(
+                            ImsCallProfile.EXTRA_CONFERENCE_AVAIL)) {
+                        updateConnectionCapabilities();
+                    }
                 } else {
                     Log.d(this, "Extras update not required");
                 }
