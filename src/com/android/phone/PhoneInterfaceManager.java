@@ -761,7 +761,9 @@ public class PhoneInterfaceManager extends ITelephony.Stub {
                     if (ar.exception == null && ar.result != null) {
                         request.result = ar.result;     // Integer
                     } else {
-                        request.result = null;
+                        // request.result must be set to something non-null
+                        // for the calling thread to unblock
+                        request.result = new int[]{-1};
                         if (ar.result == null) {
                             loge("getPreferredNetworkType: Empty response");
                         } else if (ar.exception instanceof CommandException) {
@@ -5817,6 +5819,11 @@ public class PhoneInterfaceManager extends ITelephony.Stub {
 
     private int getCarrierPrivilegeStatusFromCarrierConfigRules(int privilegeFromSim, int uid,
             Phone phone) {
+        if (uid == Process.SYSTEM_UID || uid == Process.PHONE_UID) {
+            // Skip the check if it's one of these special uids
+            return TelephonyManager.CARRIER_PRIVILEGE_STATUS_HAS_ACCESS;
+        }
+
         //load access rules from carrier configs, and check those as well: b/139133814
         SubscriptionController subController = SubscriptionController.getInstance();
         if (privilegeFromSim == TelephonyManager.CARRIER_PRIVILEGE_STATUS_HAS_ACCESS
